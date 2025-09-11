@@ -1,0 +1,5 @@
+Après avoir installé un requirement :
+pip freeze > requirements.txt
+
+Comme  n’importe quel membre de l’équipe peut recréer le même environnement exactement avec :
+pip install -r requirements.txt
