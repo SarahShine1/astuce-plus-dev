@@ -27,17 +27,5 @@ astuce-plus-dev/
 - **IA & NLP** : TensorFlow Lite, scikit-learn, pandas, nltk, spacy  
 - **Scraping** : BeautifulSoup, Scrapy  
 
-## 🚀 Installation
 
-### Frontend (Flutter)
-```bash
-cd frontend
-flutter pub get
-flutter run
-
-### Backend (Django)
-cd core
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver
 
