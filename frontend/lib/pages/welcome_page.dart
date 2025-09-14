@@ -1,58 +1,66 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:frontend/widgets/welcome_button.dart';
-class WelcomePage extends StatelessWidget {
+import 'package:frontend/pages/onloading_page.dart';
+
+class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
 
   @override
-  Widget build (BuildContext context){
-    return Scaffold(
-      backgroundColor: Color(0xFF053F5C),
-      appBar: AppBar( backgroundColor: Color(0xFF053F5C),),
-      body: Column(
-        children: [
-          Flexible(
-              flex: 8,
-              child: Container(
-            padding: const EdgeInsets.symmetric(
-              vertical: 0,
-              horizontal: 36.0,
-            ),
-            child: Center(child: RichText(
-              textAlign: TextAlign.center,
-              text: const TextSpan(
-                children: [
-                  TextSpan(text: 'Bienvenue sur Astuce+ !\n',
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w600,
-                    )
-                  ),
-                  TextSpan(text: '\nvos astuces pratiques au quotidien',
-                      style: TextStyle(
-                        fontSize: 19,
+  State<WelcomePage> createState() => _WelcomePageState();
+}
 
-                      ))
-                ],
+class _WelcomePageState extends State<WelcomePage> {
+  @override
+  void initState() {
+    super.initState();
+
+    // Wait 3 seconds then navigate to OnloadingPage
+    Timer(const Duration(seconds: 2), () {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const OnloadingPage()),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF053F5C),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.star, size: 80, color: Colors.amber),
+            SizedBox(height: 20),
+            Text(
+              'Bienvenue sur Astuce+',
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
-            )),
-          )),
-         const Flexible(
-             flex: 1,
-             child: Align(
-               alignment: Alignment.bottomRight,
-               child: Row(
-                           children: [
-                Expanded(child: WelcomeButtoon(
-                  buttonText: 'S inscrir',
-                )),
-                Expanded(child: WelcomeButtoon(
-                  buttonText: 'Se connecter',
-                )),
-                           ],
-                         ),
-             ))
-        ],
+            ),
+            SizedBox(height: 10),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 36.0),
+              child: Text(
+                'Vos astuces pratiques au quotidien',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.normal,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+            SizedBox(height: 20),
+            CircularProgressIndicator(color: Colors.amber),
+          ],
+        ),
+
       ),
     );
   }
 }
+
