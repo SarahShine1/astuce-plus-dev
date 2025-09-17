@@ -22,7 +22,7 @@ class WelcomeButton extends StatelessWidget {
         onTap: onTap,
         borderRadius:  BorderRadius.only(topLeft: Radius.circular(40)),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 24),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
           decoration: BoxDecoration(
             color: color,
             borderRadius: borderRadius,
@@ -31,7 +31,7 @@ class WelcomeButton extends StatelessWidget {
           child: Text(
             buttonText,
             style: const TextStyle(
-              fontSize: 20,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),

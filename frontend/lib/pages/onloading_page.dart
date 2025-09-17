@@ -50,7 +50,7 @@ class _OnloadingPageState extends State<OnloadingPage> {
       body: Column(
         children: [
 
-
+          const SizedBox(height: 40),
           // Swipeable content
           Flexible(
             flex: 4,
@@ -102,9 +102,10 @@ class _OnloadingPageState extends State<OnloadingPage> {
               },
             ),
           ),
-
+          const SizedBox(height: 20),
           // Page indicators
           Row(
+
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
               _pages.length,
@@ -121,20 +122,7 @@ class _OnloadingPageState extends State<OnloadingPage> {
           ),
           const SizedBox(height: 18),
 
-          // "Commencer" button
-          Button(
-            buttonText: "Commencer",
-            color: const Color(0xFFF7AD19),
-            borderRadius: BorderRadius.circular(10),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SignupPage(),
-                ),
-              );
-            },
-          ),
+
 
           const Spacer(), // 🔽 pousse les boutons tout en bas
 
@@ -147,7 +135,7 @@ class _OnloadingPageState extends State<OnloadingPage> {
                   child: SizedBox(
                     height: 60,
                     child: WelcomeButton(
-                      buttonText: "S'inscrire",
+                      buttonText: "Continuer en invité",
                       onTap: () {
                         Navigator.push(
                           context,
@@ -162,9 +150,11 @@ class _OnloadingPageState extends State<OnloadingPage> {
                 Expanded(
                   child: SizedBox(
                     height: 60,
+
                     child: WelcomeButton(
-                      buttonText: "Se connecter",
+                      buttonText: "Se connecter/S'inscrire",
                       color: const Color(0xFFF7AD19),
+
                       onTap: () {
                         Navigator.push(
                           context,
