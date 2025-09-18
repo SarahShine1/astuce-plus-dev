@@ -34,11 +34,11 @@ class CustomBottomNavBar extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
-              _buildNavItem(1, Icons.search, Icons.search, 'Search'),
-              _buildNavItem(2, Icons.add_circle_outline, Icons.add_circle, 'Post'),
-              _buildNavItem(3, Icons.bookmark_border, Icons.bookmark, 'Saved'),
-              _buildNavItem(4, Icons.person_outline, Icons.person, 'Profile'),
+              _buildNavItem(0, Icons.home_outlined, Icons.home, 'Accueil'),
+              _buildNavItem(1, Icons.search, Icons.search, 'Rechercher'),
+              _buildNavItem(2, Icons.add_circle_outline, Icons.add_circle, 'Ajouter'),
+              _buildNavItem(3, Icons.bookmark_border, Icons.bookmark, 'Favoris'),
+              _buildNavItem(4, Icons.person_outline, Icons.person, 'Profil'),
             ],
           ),
         ),
