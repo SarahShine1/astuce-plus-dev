@@ -1,23 +1,52 @@
 import 'package:flutter/material.dart';
-
+import 'package:frontend/pages/edit_profile_page.dart';
+import 'package:frontend/pages/change_password_page.dart';
+import 'dart:io';
 
 class ProfilePage extends StatefulWidget {
   @override
   _ProfilePageState createState() => _ProfilePageState();
 }
 
+
+
 class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin {
   TabController? _tabController;
+  String name = "Tasya Aulianza";
+  String username = "@tasyaaauz";
+  String email = "tasya@example.com";
+  String bio = "Passionnée par la cuisine 🍳";
+  String phone = "+213 555 123 456";
+  String? profileImagePath;
+  List<String> userInterests = ['Cuisine', 'Photographie', 'Voyages', 'Food'];
 
-  // Palette de couleurs
+  // Helper pour l'image de profil
+  ImageProvider? _getProfileImageProvider() {
+    if (profileImagePath == null || profileImagePath!.isEmpty) return null;
+    if (profileImagePath!.startsWith('http')) {
+      return NetworkImage(profileImagePath!);
+    } else {
+      return FileImage(File(profileImagePath!));
+    }
+  }
+
+  // Palette de couleurs originale
   static const Color primaryBlue = Color(0xFF053F5C);
   static const Color secondaryBlue = Color(0xFF429EBD);
   static const Color accentOrange = Color(0xFFF7AD19);
 
+  // Liste des propositions de l'utilisateur (dynamique)
+  List<ProposalItem> userProposals = [
+    ProposalItem('Shrimp with Garlic', Colors.orange[400]!, ProposalStatus.pending,null),
+    ProposalItem('Spicy Sausage', Colors.teal[400]!, ProposalStatus?.aiValidated,3.2),
+    ProposalItem('Thai Basil Pork', Colors.purple[400]!, ProposalStatus.modValidated,2),
+    ProposalItem('Pad Thai Special', Colors.pink[400]!, ProposalStatus.pending,null),
+  ];
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -48,14 +77,15 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           ],
         ),
       ),
-
     );
   }
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+
+      padding: const EdgeInsets.all(15.0),
       child: Row(
+
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
@@ -77,7 +107,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
 
   Widget _buildProfileSection() {
     return Container(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.all(15.0),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -91,14 +121,17 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
               CircleAvatar(
                 radius: 40,
                 backgroundColor: secondaryBlue,
-                child: Text(
+                backgroundImage: _getProfileImageProvider(),
+                child: _getProfileImageProvider() == null
+                    ? Text(
                   'TA',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
-                ),
+                )
+                    : null,
               ),
               SizedBox(width: 15),
               Expanded(
@@ -106,7 +139,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Tasya Aulianza',
+                      name,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -115,12 +148,24 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                     ),
                     SizedBox(height: 4),
                     Text(
-                      '@tasyaaauz',
+                      username,
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 16,
                       ),
                     ),
+                    if (bio.isNotEmpty) ...[
+                      SizedBox(height: 4),
+                      Text(
+                        bio,
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -156,27 +201,35 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
   }
 
   Widget _buildInterestTags() {
-    final interests = ['Cuisine', 'Photographie', 'Voyages', 'Food'];
+    if (userInterests.isEmpty) {
+      return Text(
+        'Aucun centre d\'intérêt',
+        style: TextStyle(color: Colors.grey[600], fontSize: 14),
+      );
+    }
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: interests.map((interest) => Container(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: secondaryBlue,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          interest,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: userInterests.map((interest) => Container(
+          margin: EdgeInsets.only(right: 8), // espace entre les éléments
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: secondaryBlue,
+            borderRadius: BorderRadius.circular(20),
           ),
-        ),
-      )).toList(),
+          child: Text(
+            interest,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        )).toList(),
+      ),
     );
+
   }
 
   Widget _buildTabBar() {
@@ -195,8 +248,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
         unselectedLabelColor: Colors.grey[600],
         labelStyle: TextStyle(fontWeight: FontWeight.w500),
         tabs: [
-          Tab(text: 'Mes astuces'),
-
+          Tab(text: 'Mes astuces (${userProposals.length})'),
           Tab(text: 'Évaluations'),
         ],
       ),
@@ -204,12 +256,9 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
   }
 
   Widget _buildAstucesContent() {
-    final proposals = [
-      ProposalItem('Shrimp with Garlic', 186, Colors.orange[400]!, ProposalStatus.pending),
-      ProposalItem('Spicy Sausage', 503, Colors.teal[400]!, ProposalStatus.aiValidated),
-      ProposalItem('Thai Basil Pork', 799, Colors.purple[400]!, ProposalStatus.modValidated),
-      ProposalItem('Thai Basil Pork', 799, Colors.pink[400]!, ProposalStatus.pending),
-    ];
+    if (userProposals.isEmpty) {
+      return _buildEmptyState();
+    }
 
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -220,15 +269,66 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           mainAxisSpacing: 15,
           childAspectRatio: 0.8,
         ),
-        itemCount: proposals.length,
+        itemCount: userProposals.length,
         itemBuilder: (context, index) {
-          return _buildProposalCard(proposals[index]);
+          return _buildProposalCard(userProposals[index], index);
         },
       ),
     );
   }
 
-  Widget _buildProposalCard(ProposalItem proposal) {
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.lightbulb_outline,
+            size: 80,
+            color: Colors.grey[400],
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Aucune astuce pour le moment',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Commencez à partager vos astuces !',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[500],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => _addNewProposal(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accentOrange,
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Ajouter une astuce',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProposalCard(ProposalItem proposal, int index) {
     return GestureDetector(
       onTap: () => _openProposal(proposal),
       child: Container(
@@ -246,6 +346,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Partie haute avec couleur + badge + menu
             Expanded(
               flex: 3,
               child: Container(
@@ -254,9 +355,62 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                   color: proposal.color,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
                 ),
-                child: _getStatusBadge(proposal.status),
+                child: Stack(
+                  children: [
+                    _getStatusBadge(proposal.status),
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: PopupMenuButton<String>(
+                        icon: Icon(
+                          Icons.more_vert,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        onSelected: (value) {
+                          if (value == 'delete') {
+                            _deleteProposal(index);
+                          } else if (value == 'edit') {
+                            _editProposal(index);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => [
+                          PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 18, color: primaryBlue),
+                                SizedBox(width: 8),
+                                Text('Modifier'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 18, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text('Supprimer'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Center(
+                      child: Icon(
+                        Icons.restaurant,
+                        color: Colors.white,
+                        size: 30,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+
+            // Partie basse avec titre + moyenne des avis si validée et partagée
             Expanded(
               flex: 2,
               child: Padding(
@@ -275,25 +429,25 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.visibility, size: 16, color: Colors.grey[600]),
-                            SizedBox(width: 4),
-                            Text(
-                              '${proposal.views}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 13,
-                              ),
+
+                    // ✅ Affichage de la moyenne uniquement si partagé et validé
+                    if ( proposal?.status == ProposalStatus.aiValidated)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Icon(Icons.star, color: Colors.amber, size: 16),
+                          SizedBox(width: 4),
+                          Text(
+                            proposal.averageRating!.toStringAsFixed(1) + "/5",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w500,
                             ),
-                          ],
-                        ),
-                        Icon(Icons.more_horiz, color: Colors.grey[600]),
-                      ],
-                    ),
+                          ),
+                        ],
+                      ),
+
                   ],
                 ),
               ),
@@ -303,6 +457,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
       ),
     );
   }
+
 
   Widget _getStatusBadge(ProposalStatus status) {
     String text;
@@ -348,7 +503,6 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
-
   Widget _buildEvaluationsContent() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -361,7 +515,6 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
             description: 'Consultez tous les avis que vous avez laissés',
             onTap: () => _openEvaluations(),
           ),
-
         ],
       ),
     );
@@ -474,24 +627,100 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
-  void _editProfile() {
-    print('Modifier profil');
+  void _editProfile() async {
+    final updatedData = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditProfilePage(
+          initialName: name,
+          initialUsername: username,
+          initialEmail: email,
+          initialBio: bio,
+          initialPhone: phone,
+          initialProfileImage: profileImagePath,
+        ),
+      ),
+    );
+
+    if (updatedData != null && updatedData is Map<String, dynamic>) {
+      setState(() {
+        name = updatedData['name'] ?? name;
+        username = updatedData['username'] ?? username;
+        email = updatedData['email'] ?? email;
+        bio = updatedData['bio'] ?? bio;
+        phone = updatedData['phone'] ?? phone;
+        profileImagePath = updatedData['profileImage'];
+      });
+    }
+  }
+
+  void _addNewProposal() {
+    // Ajouter une nouvelle proposition (pour démo)
+    setState(() {
+      userProposals.add(
+        ProposalItem(
+            'Nouvelle Recette',
+            Colors.indigo[400]!,
+            ProposalStatus.pending,
+            4.2
+        ),
+      );
+    });
+  }
+
+  void _deleteProposal(int index) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Supprimer l\'astuce'),
+          content: Text('Êtes-vous sûr de vouloir supprimer cette astuce ?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  userProposals.removeAt(index);
+                });
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Astuce supprimée'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              },
+              child: Text(
+                'Supprimer',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _editProposal(int index) {
+    print('Modifier proposition: ${userProposals[index].title}');
   }
 
   void _openProposal(ProposalItem proposal) {
     print('Ouvrir proposition: ${proposal.title}');
   }
 
-
-
   void _openEvaluations() {
     print('Ouvrir évaluations');
   }
 
-
   void _changePassword() {
-    Navigator.pop(context);
-    print('Changer mot de passe');
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ChangePasswordPage()),
+    );
   }
 
   void _manageNotifications() {
@@ -503,11 +732,12 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
 // Classes de données
 class ProposalItem {
   final String title;
-  final int views;
   final Color color;
   final ProposalStatus status;
+  final double? averageRating; // null si pas d’avis
 
-  ProposalItem(this.title, this.views, this.color, this.status);
+
+  ProposalItem(this.title, this.color, this.status ,this.averageRating);
 }
 
 enum ProposalStatus {
