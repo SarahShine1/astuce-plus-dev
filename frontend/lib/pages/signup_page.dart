@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/services/api_service.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -15,30 +16,37 @@ class _SignupPageState extends State<SignupPage> {
   final TextEditingController passwordController = TextEditingController();
   bool _acceptTerms = false;
 
-  void _signup() {
+  void _signup() async {
     String name = nameController.text;
     String birthDate = birthDateController.text;
-
     String email = emailController.text;
     String password = passwordController.text;
 
     if (name.isNotEmpty && birthDate.isNotEmpty && email.isNotEmpty && password.isNotEmpty) {
-      /*if (_acceptTerms) {
-        print("Name: $name | Birth Date: $birthDate | Phone: $phone | Email: $email | Password: $password");
-        // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
+      bool success = await ApiService.register(
+        name: name,
+        email: email,
+        password: password,
+        birthDate: birthDate,
+      );
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Inscription réussie 🎉")),
+        );
+        Navigator.pop(context); // retour à login
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Veuillez accepter les conditions d'utilisation")),
+          const SnackBar(content: Text("Échec de l’inscription ❌")),
         );
-      }*/
-      print("Name: $name | Birth Date: $birthDate | Email: $email | Password: $password");
-      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Veuillez remplir tous les champs")),
       );
     }
   }
+
 
   void _signUpWithGoogle() {
     print("Inscription avec Google");

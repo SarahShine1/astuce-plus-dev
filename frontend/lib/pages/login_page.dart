@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/pages/signup_page.dart';
 import 'package:frontend/pages/forgot_password_page.dart';
+import 'package:frontend/services/auth_service.dart';
+import 'dart:convert';
+
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,19 +17,45 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController passwordController = TextEditingController();
   bool _rememberMe = false;
 
-  void _login() {
+  void _login() async {
     String email = emailController.text;
     String password = passwordController.text;
 
     if (email.isNotEmpty && password.isNotEmpty) {
-      print("Email: $email | Password: $password | Remember Me: $_rememberMe");
-      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
+      try {
+        final response = await AuthService().login(email, password);
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          String accessToken = data["access"];
+          String refreshToken = data["refresh"];
+
+          // 👉 Here you could save tokens securely with flutter_secure_storage
+          print("✅ Login success: $accessToken");
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Connexion réussie")),
+          );
+
+          // Example: Navigate to home page
+          // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Erreur: ${response.body}")),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur de connexion: $e")),
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Veuillez remplir tous les champs")),
       );
     }
   }
+
 
   void _signInWithGoogle() {
     print("Connexion avec Google");

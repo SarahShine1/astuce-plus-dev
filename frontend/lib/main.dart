@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Mon App',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home:  MainNavigationWrapper()// ✅ no const here
+      home:  WelcomePage()// ✅ no const here
     );
   }
 }
