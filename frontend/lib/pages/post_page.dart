@@ -1,55 +1,47 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:video_player/video_player.dart';
+import 'dart:io';
 
 class PostPage extends StatefulWidget {
-  const PostPage({super.key});
+  const PostPage({Key? key}) : super(key: key);
 
   @override
   State<PostPage> createState() => _PostPageState();
 }
 
 class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _sourceController = TextEditingController();
-
-  String? _selectedCategory;
-
-  List<File> _imageFiles = [];
-  File? _videoFile;
-  VideoPlayerController? _videoController;
-  final ImagePicker _picker = ImagePicker();
-
-  AnimationController? _animationController;
-  Animation<double>? _fadeAnimation;
-  Animation<Offset>? _slideAnimation;
-
-  // Liste des catégories avec icônes et couleurs
-  final List<Map<String, dynamic>> _categories = [
-    {'name': 'Cuisine', 'icon': Icons.kitchen, 'color': Colors.green},
-    {'name': 'Bricolage', 'icon': Icons.build, 'color': Colors.brown},
-    {'name': 'Jardinage', 'icon': Icons.eco, 'color': Colors.green.shade700},
-    {'name': 'Technologie', 'icon': Icons.computer, 'color': Colors.blue},
-    {'name': 'Santé & Bien-être', 'icon': Icons.favorite, 'color': Colors.pink},
-    {'name': 'Beauté', 'icon': Icons.face_retouching_natural, 'color': Colors.purple},
-    {'name': 'Nettoyage', 'icon': Icons.cleaning_services, 'color': Colors.teal},
-    {'name': 'Économies', 'icon': Icons.savings, 'color': Colors.amber},
-    {'name': 'Voyage', 'icon': Icons.flight, 'color': Colors.indigo},
-    {'name': 'DIY & Créativité', 'icon': Icons.palette, 'color': Colors.orange},
-    {'name': 'Sport & Fitness', 'icon': Icons.fitness_center, 'color': Colors.red},
-    {'name': 'Éducation', 'icon': Icons.school, 'color': Colors.deepPurple},
-    {'name': 'Autres', 'icon': Icons.more_horiz, 'color': Colors.grey},
-  ];
-
-  // Couleurs cohérentes avec SavedPage
   static const Color primaryBlue = Color(0xFF053F5C);
   static const Color secondaryBlue = Color(0xFF429EBD);
   static const Color accentOrange = Color(0xFFF7AD19);
   static const Color lightGray = Color(0xFFF8F9FA);
   static const Color cardBackground = Colors.white;
+
+  AnimationController? _animationController;
+  Animation<double>? _fadeAnimation;
+
+  final _formKey = GlobalKey<FormState>();
+  final ImagePicker _imagePicker = ImagePicker();
+
+  final _titreController = TextEditingController();
+  final _descriptionController = TextEditingController();
+
+  String? _categorieSelectionnee;
+  String? _niveauDifficulte;
+  List<TextEditingController> _etapesControllers = [TextEditingController()];
+  List<File?> _images = [];
+  List<Map<String, TextEditingController>> _termes = [];
+
+  final List<String> _categories = [
+    'Santé',
+    'Bien-être',
+    'Cuisine',
+    'Maison',
+    'Beauté',
+    'Productivité',
+    'Technologie',
+    'Finances',
+    'Loisirs'
+  ];
 
   @override
   void initState() {
@@ -61,95 +53,181 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController!, curve: Curves.easeInOut),
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animationController!, curve: Curves.easeOutCubic));
     _animationController!.forward();
   }
 
   @override
   void dispose() {
-    _animationController?.dispose();
-    _videoController?.dispose();
-    _titleController.dispose();
+    _animationController!.dispose();
+    _titreController.dispose();
     _descriptionController.dispose();
-    _sourceController.dispose();
+    for (var controller in _etapesControllers) {
+      controller.dispose();
+    }
+    for (var t in _termes) {
+      t['nom']!.dispose();
+      t['definition']!.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _pickImages() async {
-    final List<XFile> pickedFiles = await _picker.pickMultiImage();
-    if (pickedFiles.isNotEmpty) {
+  Future<void> _pickImage() async {
+    final XFile? image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+
+    if (image != null) {
       setState(() {
-        _imageFiles.addAll(pickedFiles.map((file) => File(file.path)).toList());
+        _images.add(File(image.path));
       });
     }
   }
 
-  Future<void> _pickVideo() async {
-    final XFile? pickedFile = await _picker.pickVideo(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      _videoController?.dispose();
+  Future<void> _takePhoto() async {
+    final XFile? photo = await _imagePicker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+    );
+
+    if (photo != null) {
       setState(() {
-        _videoFile = File(pickedFile.path);
-        _videoController = VideoPlayerController.file(_videoFile!);
+        _images.add(File(photo.path));
       });
-      await _videoController!.initialize();
-      setState(() {});
     }
+  }
+
+  void _ajouterTerme() {
+    setState(() {
+      _termes.add({
+        'nom': TextEditingController(),
+        'definition': TextEditingController(),
+      });
+    });
+  }
+
+  void _supprimerTerme(int index) {
+    setState(() {
+      _termes[index]['nom']!.dispose();
+      _termes[index]['definition']!.dispose();
+      _termes.removeAt(index);
+    });
   }
 
   void _removeImage(int index) {
     setState(() {
-      _imageFiles.removeAt(index);
+      _images.removeAt(index);
     });
   }
 
-  void _removeVideo() {
-    _videoController?.dispose();
+  void _addEtape() {
     setState(() {
-      _videoFile = null;
-      _videoController = null;
+      _etapesControllers.add(TextEditingController());
     });
+  }
+
+  void _removeEtape(int index) {
+    if (_etapesControllers.length > 1) {
+      setState(() {
+        _etapesControllers[index].dispose();
+        _etapesControllers.removeAt(index);
+      });
+    }
   }
 
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  "Astuce soumise avec succès !",
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green.shade600,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.all(12),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      if (_categorieSelectionnee == null) {
+        _showErrorSnackbar('Veuillez sélectionner une catégorie');
+        return;
+      }
+      if (_niveauDifficulte == null) {
+        _showErrorSnackbar('Veuillez sélectionner un niveau de difficulté');
+        return;
+      }
 
-      // Reset form
-      _titleController.clear();
-      _descriptionController.clear();
-      _sourceController.clear();
+      String message = 'Astuce créée: ${_titreController.text}';
+
+      if (_termes.isNotEmpty) {
+        message += '\nTermes ajoutés au dictionnaire:';
+        for (var t in _termes) {
+          message += '\n- ${t['nom']!.text}: ${t['definition']!.text}';
+        }
+      }
+
+      _showSuccessSnackbar(message);
+
+      // Réinitialisation
+      _formKey.currentState!.reset();
       setState(() {
-        _imageFiles.clear();
-        _videoFile = null;
-        _selectedCategory = null;
-        _videoController?.dispose();
-        _videoController = null;
+        _titreController.clear();
+        _descriptionController.clear();
+        _categorieSelectionnee = null;
+        _niveauDifficulte = null;
+
+        // Réinitialiser étapes
+        _etapesControllers.forEach((c) => c.dispose());
+        _etapesControllers = [TextEditingController()];
+
+        // Réinitialiser images
+        _images = [];
+
+        // Réinitialiser termes
+        _termes.forEach((t) {
+          t['nom']!.dispose();
+          t['definition']!.dispose();
+        });
+        _termes = [];
       });
     }
+  }
+
+  void _showErrorSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showSuccessSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -159,32 +237,108 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
       body: CustomScrollView(
         slivers: [
           _buildSliverAppBar(),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                FadeTransition(
-                  opacity: _fadeAnimation ?? const AlwaysStoppedAnimation(1.0),
-                  child: SlideTransition(
-                    position: _slideAnimation ?? const AlwaysStoppedAnimation(Offset.zero),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+          SliverToBoxAdapter(
+            child: FadeTransition(
+              opacity: _fadeAnimation ?? AlwaysStoppedAnimation(0.0),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionTitle('Titre Descriptif *'),
+                      const SizedBox(height: 12),
+                      _buildTitreField(),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Catégorie *'),
+                      const SizedBox(height: 12),
+                      _buildCategorieDropdown(),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Niveau de Difficulté *'),
+                      const SizedBox(height: 12),
+                      _buildDifficultyChips(),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Description Détaillée *'),
+                      const SizedBox(height: 8),
+                      _buildDescriptionField(),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Étapes de Mise en Œuvre'),
+                      const SizedBox(height: 12),
+                      _buildEtapesSection(),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Images ou Vidéos'),
+                      const SizedBox(height: 12),
+                      _buildMediaSection(),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Définition des termes clés'),
+                      const SizedBox(height: 12),
+                      Column(
                         children: [
-                          _buildMediaSection(),
-                          const SizedBox(height: 12),
-                          _buildBasicInfoSection(),
-                          const SizedBox(height: 12),
-                          _buildDescriptionSection(),
-                          const SizedBox(height: 24),
-                          _buildSubmitButton(),
+                          for (int i = 0; i < _termes.length; i++)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _termes[i]['nom'],
+                                      decoration: InputDecoration(
+                                        labelText: 'Nom du terme',
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _termes[i]['definition'],
+                                      decoration: InputDecoration(
+                                        labelText: 'Définition',
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () => _supprimerTerme(i),
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _ajouterTerme,
+                              icon: const Icon(Icons.add),
+                              label: const Text('Ajouter un terme'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: accentOrange,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: 32),
+                      _buildActionButtons(),
+                    ],
                   ),
                 ),
-              ]),
+              ),
             ),
           ),
         ],
@@ -192,10 +346,9 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
     );
   }
 
-  // AppBar similaire à SavedPage
   Widget _buildSliverAppBar() {
     return SliverAppBar(
-      expandedHeight: 100,
+      expandedHeight: 140,
       floating: false,
       pinned: true,
       backgroundColor: primaryBlue,
@@ -203,11 +356,11 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
       elevation: 0,
       flexibleSpace: FlexibleSpaceBar(
         title: const Text(
-          "Proposer une astuce",
+          "Créer une Astuce",
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontSize: 20,
           ),
         ),
         background: Container(
@@ -215,10 +368,7 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                primaryBlue,
-                secondaryBlue,
-              ],
+              colors: [primaryBlue, secondaryBlue],
             ),
           ),
         ),
@@ -226,574 +376,391 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
     );
   }
 
-  // Section médias avec style moderne
-  Widget _buildMediaSection() {
-    return Card(
-      elevation: 4,
-      shadowColor: Colors.black.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: cardBackground,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: secondaryBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.perm_media,
-                    color: secondaryBlue,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Ajouter des médias",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: primaryBlue,
-                        ),
-                      ),
-                      Text(
-                        "Photos et vidéos pour illustrer",
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Boutons médias
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMediaButton(
-                    icon: Icons.photo_library_outlined,
-                    label: "Photos",
-                    subtitle: "${_imageFiles.length} sélectionnée${_imageFiles.length > 1 ? 's' : ''}",
-                    color: Colors.green,
-                    onTap: _pickImages,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildMediaButton(
-                    icon: Icons.videocam_outlined,
-                    label: "Vidéo",
-                    subtitle: _videoFile != null ? "1 sélectionnée" : "Aucune",
-                    color: Colors.blue,
-                    onTap: _pickVideo,
-                  ),
-                ),
-              ],
-            ),
-
-            // Affichage des médias sélectionnés
-            if (_imageFiles.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _buildImagePreview(),
-            ],
-            if (_videoFile != null) ...[
-              const SizedBox(height: 16),
-              _buildVideoPreview(),
-            ],
-          ],
-        ),
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: primaryBlue,
       ),
     );
   }
 
-  Widget _buildMediaButton({
-    required IconData icon,
-    required String label,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+  Widget _buildTitreField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        TextFormField(
+          controller: _titreController,
+          maxLength: 100,
+          onChanged: (value) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: 'Entrez un titre descriptif',
+            hintStyle: TextStyle(color: Colors.grey[400]),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: secondaryBlue, width: 2),
+            ),
+            filled: true,
+            fillColor: cardBackground,
+            counter: const SizedBox.shrink(),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Le titre est obligatoire';
+            }
+            if (value.length < 50) {
+              return 'Le titre doit contenir au moins 50 caractères';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '${_titreController.text.length}/100',
+          style: TextStyle(
+            fontSize: 12,
+            color:
+            _titreController.text.length < 50 ? Colors.red : accentOrange,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategorieDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _categorieSelectionnee,
+      items: _categories.map((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value),
+        );
+      }).toList(),
+      onChanged: (String? value) {
+        setState(() {
+          _categorieSelectionnee = value;
+        });
+      },
+      decoration: InputDecoration(
+        hintText: 'Sélectionnez une catégorie',
+        border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.2)),
+          borderSide: BorderSide(color: Colors.grey[300]!),
         ),
-        child: Column(
-          children: [
-            Icon(icon, size: 24, color: color),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 10,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!),
         ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: secondaryBlue, width: 2),
+        ),
+        filled: true,
+        fillColor: cardBackground,
+        prefixIcon: const Icon(Icons.category, color: accentOrange),
       ),
     );
   }
 
-  Widget _buildImagePreview() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Images sélectionnées (${_imageFiles.length})",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: primaryBlue,
-            fontSize: 14,
+  Widget _buildDifficultyChips() {
+    return Wrap(
+      spacing: 12,
+      children: ['Débutant', 'Intermédiaire', 'Expert'].map((niveau) {
+        return FilterChip(
+          label: Text(
+            niveau,
+            style: TextStyle(
+              color: _niveauDifficulte == niveau ? Colors.white : primaryBlue,
+              fontWeight: FontWeight.w500,
+            ),
           ),
+          selected: _niveauDifficulte == niveau,
+          onSelected: (selected) {
+            setState(() {
+              _niveauDifficulte = selected ? niveau : null;
+            });
+          },
+          selectedColor: accentOrange,
+          backgroundColor: Colors.white,
+          checkmarkColor: Colors.white,
+          elevation: _niveauDifficulte == niveau ? 4 : 2,
+          side: BorderSide(
+            color: _niveauDifficulte == niveau ? accentOrange : Colors.grey[300]!,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildDescriptionField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        TextFormField(
+          controller: _descriptionController,
+          maxLines: 5,
+          onChanged: (value) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: 'Décrivez votre astuce en détail...',
+            hintStyle: TextStyle(color: Colors.grey[400]),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: secondaryBlue, width: 2),
+            ),
+            filled: true,
+            fillColor: cardBackground,
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'La description est obligatoire';
+            }
+            if (value.length < 300) {
+              return 'La description doit contenir au moins 300 caractères';
+            }
+            return null;
+          },
         ),
         const SizedBox(height: 8),
+        Text(
+          '${_descriptionController.text.length}/300 min',
+          style: TextStyle(
+            fontSize: 12,
+            color: _descriptionController.text.length < 300
+                ? Colors.red
+                : accentOrange,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEtapesSection() {
+    return Column(
+      children: [
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _etapesControllers.length,
+          itemBuilder: (context, index) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: accentOrange,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${index + 1}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _etapesControllers[index],
+                      decoration: InputDecoration(
+                        labelText: 'Étape ${index + 1}',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: secondaryBlue,
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: cardBackground,
+                      ),
+                    ),
+                  ),
+                  if (_etapesControllers.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: IconButton(
+                        onPressed: () => _removeEtape(index),
+                        icon: const Icon(Icons.delete_outline,
+                            color: Colors.red, size: 20),
+                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
         SizedBox(
-          height: 80,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _imageFiles.length,
-            itemBuilder: (context, index) {
-              return Container(
-                margin: const EdgeInsets.only(right: 8),
-                child: Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        _imageFiles[index],
-                        width: 60,
-                        height: 80,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    Positioned(
-                      top: 2,
-                      right: 2,
-                      child: GestureDetector(
-                        onTap: () => _removeImage(index),
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.9),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.close,
-                            color: Colors.white,
-                            size: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _addEtape,
+            icon: const Icon(Icons.add),
+            label: const Text('Ajouter une étape'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accentOrange,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildVideoPreview() {
+  Widget _buildMediaSection() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Vidéo sélectionnée",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: primaryBlue,
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Stack(
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
           children: [
-            Container(
-              height: 140,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.black,
-              ),
-              child: _videoController?.value.isInitialized == true
-                  ? ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: AspectRatio(
-                  aspectRatio: _videoController!.value.aspectRatio,
-                  child: VideoPlayer(_videoController!),
-                ),
-              )
-                  : const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              ),
-            ),
-            Positioned(
-              top: 6,
-              right: 6,
-              child: GestureDetector(
-                onTap: _removeVideo,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.9),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-              ),
-            ),
-            if (_videoController?.value.isInitialized == true)
-              Positioned(
-                bottom: 6,
-                left: 6,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: IconButton(
-                    onPressed: () {
-                      setState(() {
-                        _videoController!.value.isPlaying
-                            ? _videoController!.pause()
-                            : _videoController!.play();
-                      });
-                    },
-                    icon: Icon(
-                      _videoController!.value.isPlaying
-                          ? Icons.pause
-                          : Icons.play_arrow,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    padding: const EdgeInsets.all(4),
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
+            for (int i = 0; i < _images.length; i++)
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      _images[i]!,
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
                     ),
                   ),
-                ),
+                  Positioned(
+                    top: -5,
+                    right: -5,
+                    child: IconButton(
+                      onPressed: () => _removeImage(i),
+                      icon: const Icon(Icons.cancel, color: Colors.red),
+                    ),
+                  ),
+                ],
               ),
+            GestureDetector(
+              onTap: _pickImage,
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[400]!),
+                ),
+                child: const Icon(Icons.add_a_photo, color: Colors.grey),
+              ),
+            ),
+            GestureDetector(
+              onTap: _takePhoto,
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[400]!),
+                ),
+                child: const Icon(Icons.camera_alt, color: Colors.grey),
+              ),
+            ),
           ],
         ),
       ],
     );
   }
 
-  // Section informations de base
-  Widget _buildBasicInfoSection() {
-    return Card(
-      elevation: 4,
-      shadowColor: Colors.black.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: cardBackground,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: accentOrange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.info_outline,
-                    color: accentOrange,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Informations de base",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: primaryBlue,
-                        ),
-                      ),
-                      Text(
-                        "Titre et catégorie de votre astuce",
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Titre
-            TextFormField(
-              controller: _titleController,
-              decoration: InputDecoration(
-                labelText: "Titre de l'astuce *",
-                hintText: "Donnez un titre accrocheur...",
-                prefixIcon: Icon(Icons.title, color: secondaryBlue, size: 20),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: primaryBlue, width: 2),
-                ),
-                filled: true,
-                fillColor: lightGray,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton(
+            onPressed: _submitForm,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              validator: (value) =>
-              value == null || value.isEmpty ? "Le titre est obligatoire" : null,
             ),
-            const SizedBox(height: 12),
+            child: const Text('Publier'),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () {
+              _formKey.currentState!.reset();
+              setState(() {
+                _titreController.clear();
+                _descriptionController.clear();
+                _categorieSelectionnee = null;
+                _niveauDifficulte = null;
 
-            // Catégorie avec style améliorer
-            DropdownButtonFormField<String>(
-              value: _selectedCategory,
-              decoration: InputDecoration(
-                labelText: "Catégorie *",
-                prefixIcon: Icon(Icons.category, color: secondaryBlue, size: 20),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: primaryBlue, width: 2),
-                ),
-                filled: true,
-                fillColor: lightGray,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-              hint: const Text("Sélectionnez une catégorie"),
-              items: _categories.map((category) {
-                return DropdownMenuItem<String>(
-                  value: category['name'],
-                  child: Row(
-                    children: [
-                      Icon(
-                        category['icon'],
-                        color: category['color'],
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          category['name'],
-                          style: const TextStyle(fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedCategory = newValue;
+                _etapesControllers.forEach((c) => c.dispose());
+                _etapesControllers = [TextEditingController()];
+
+                _images = [];
+
+                _termes.forEach((t) {
+                  t['nom']!.dispose();
+                  t['definition']!.dispose();
                 });
-              },
-              validator: (value) =>
-              value == null ? "Veuillez sélectionner une catégorie" : null,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Section description
-  Widget _buildDescriptionSection() {
-    return Card(
-      elevation: 4,
-      shadowColor: Colors.black.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: cardBackground,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.description,
-                    color: Colors.green,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Détails de l'astuce",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: primaryBlue,
-                        ),
-                      ),
-                      Text(
-                        "Description complète et source",
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Description
-            TextFormField(
-              controller: _descriptionController,
-              maxLines: 4,
-              decoration: InputDecoration(
-                labelText: "Description *",
-                hintText: "Décrivez votre astuce en détail...",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: primaryBlue, width: 2),
-                ),
-                filled: true,
-                fillColor: lightGray,
-                contentPadding: const EdgeInsets.all(12),
-              ),
-              validator: (value) =>
-              value == null || value.isEmpty ? "La description est obligatoire" : null,
-            ),
-            const SizedBox(height: 12),
-
-            // Source
-            TextFormField(
-              controller: _sourceController,
-              decoration: InputDecoration(
-                labelText: "Source (optionnelle)",
-                hintText: "Indiquez la source si applicable...",
-                prefixIcon: Icon(Icons.link, color: secondaryBlue, size: 20),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: primaryBlue, width: 2),
-                ),
-                filled: true,
-                fillColor: lightGray,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                _termes = [];
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey[400],
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Bouton de soumission stylé comme SavedPage
-  Widget _buildSubmitButton() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [accentOrange, accentOrange],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: accentOrange.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            child: const Text('Réinitialiser'),
           ),
-        ],
-      ),
-      child: ElevatedButton(
-        onPressed: _submitForm,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 14),
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.send_rounded, color: Colors.white, size: 18),
-            SizedBox(width: 8),
-            Text(
-              "Soumettre l'astuce",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

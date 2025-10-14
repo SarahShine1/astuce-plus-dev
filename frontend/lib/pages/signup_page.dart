@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/services/api_service.dart';
+import 'package:frontend/pages/profile_setup_page.dart';
+import 'dart:async';
+
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -14,43 +17,62 @@ class _SignupPageState extends State<SignupPage> {
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  bool _acceptTerms = false;
+  final TextEditingController confirmPasswordController = TextEditingController();
 
-  void _signup() async {
-    String name = nameController.text;
-    String birthDate = birthDateController.text;
-    String email = emailController.text;
-    String password = passwordController.text;
+  bool _isLoading = false;
 
-    if (name.isNotEmpty && birthDate.isNotEmpty && email.isNotEmpty && password.isNotEmpty) {
+  Future<void> _signup() async {
+    String name = nameController.text.trim();
+    String birthDate = birthDateController.text.trim();
+    String email = emailController.text.trim();
+    String password = passwordController.text.trim();
+    String confirmPassword = confirmPasswordController.text.trim();
+
+    if (name.isEmpty || birthDate.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+      _showSnackBar("Veuillez remplir tous les champs");
+      return;
+    }
+
+    if (password != confirmPassword) {
+      _showSnackBar("Les mots de passe ne correspondent pas");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
       bool success = await ApiService.register(
         name: name,
         email: email,
         password: password,
         birthDate: birthDate,
-      );
+      ).timeout(const Duration(seconds: 10)); // ✅ évite blocage infini
+
+      setState(() => _isLoading = false);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Inscription réussie 🎉")),
-        );
-        Navigator.pop(context); // retour à login
+        _showSnackBar("Inscription réussie 🎉");
+        Navigator.pushReplacementNamed(context, '/home'); // ✅ Navigation directe vers Home
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Échec de l’inscription ❌")),
-        );
+        _showSnackBar("Échec de l’inscription ❌");
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Veuillez remplir tous les champs")),
-      );
+    } on TimeoutException {
+      setState(() => _isLoading = false);
+      _showSnackBar("Le serveur ne répond pas. Réessayez plus tard.");
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showSnackBar("Erreur : $e");
     }
   }
 
 
   void _signUpWithGoogle() {
     print("Inscription avec Google");
-    // Implémentez ici la logique d'authentification Google
+    // À implémenter plus tard
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _selectDate() async {
@@ -62,9 +84,7 @@ class _SignupPageState extends State<SignupPage> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFFF7AD19),
-            ),
+            colorScheme: const ColorScheme.light(primary: Color(0xFFF7AD19)),
           ),
           child: child!,
         );
@@ -79,249 +99,198 @@ class _SignupPageState extends State<SignupPage> {
   @override
   Widget build(BuildContext context) {
     return Theme(
-        data: Theme.of(context).copyWith(
-          inputDecorationTheme: const InputDecorationTheme(
-            focusColor: Color(0xFF053F5C),
-            labelStyle: TextStyle(color: Color(0xFF053F5C)),
-          ),
+      data: Theme.of(context).copyWith(
+        inputDecorationTheme: const InputDecorationTheme(
+          labelStyle: TextStyle(color: Color(0xFF053F5C)),
         ),
-        child: Scaffold(
-          backgroundColor: const Color(0xFF053F5C),
-          body: Center(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
-                child: Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(maxWidth: 350),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 8,
-                        offset: Offset(0, 4),
-                      )
-                    ],
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF053F5C),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 350),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 8,
+                    offset: Offset(0, 4),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Titre principal
-                      const Text(
-                        "S'inscrire",
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF053F5C),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "S'inscrire",
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF053F5C),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
 
-                      // Lien vers Connexion
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        child: RichText(
-                          text: const TextSpan(
-                            text: "Vous avez déjà un compte ? ",
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 13,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: "Se connecter",
-                                style: TextStyle(
-                                  color: Color(0xFFF7AD19),
-                                  fontSize: 13,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Champ Nom complet
-                      TextField(
-                        controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: "Nom complet",
-                          border: OutlineInputBorder(),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF053F5C), width: 2.0),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Champ Email
-                      TextField(
-                        controller: emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: "Email",
-                          border: OutlineInputBorder(),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF053F5C), width: 2.0),
-                          ),
-                          prefixIcon: Icon(Icons.email, color: Color(0xFF053F5C)),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Champ Date de naissance
-                      TextField(
-                        controller: birthDateController,
-                        readOnly: true,
-                        onTap: _selectDate,
-                        decoration: const InputDecoration(
-                          labelText: "Date de naissance",
-                          border: OutlineInputBorder(),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF053F5C), width: 2.0),
-                          ),
-                          suffixIcon: Icon(Icons.calendar_today, color: Color(0xFF053F5C)),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-
-
-                      // Champ Mot de passe
-                      TextField(
-                        controller: passwordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: "Mot de passe",
-                          border: OutlineInputBorder(),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF053F5C), width: 2.0),
-                          ),
-                          prefixIcon: Icon(Icons.lock, color: Color(0xFF053F5C)),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-// Champ Confirmation mot de passe
-                      TextField(
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: "Confirmer le mot de passe",
-                          border: OutlineInputBorder(),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF053F5C), width: 2.0),
-                          ),
-                          prefixIcon: Icon(Icons.lock_outline, color: Color(0xFF053F5C)),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                        onChanged: (value) {
-                          if (value != passwordController.text) {
-                            // tu peux afficher un message ou changer la couleur de bordure plus tard
-                            print("Les mots de passe ne correspondent pas");
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                /*      // Accepter les conditions
-                      Row(
+                  // Bouton vers connexion
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text.rich(
+                      TextSpan(
+                        text: "Vous avez déjà un compte ? ",
+                        style: TextStyle(color: Colors.grey, fontSize: 13),
                         children: [
-                          Checkbox(
-                            value: _acceptTerms,
-                            onChanged: (bool? value) {
-                              setState(() {
-                                _acceptTerms = value ?? false;
-                              });
-                            },
-                            activeColor: const Color(0xFFF7AD19),
-                          ),
-                          const Expanded(
-                            child: Text(
-                              "J'accepte les conditions d'utilisation",
-                              style: TextStyle(fontSize: 14),
+                          TextSpan(
+                            text: "Se connecter",
+                            style: TextStyle(
+                              color: Color(0xFFF7AD19),
+                              fontSize: 13,
+                              decoration: TextDecoration.underline,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),*/
+                    ),
+                  ),
+                  const SizedBox(height: 12),
 
-                      // Bouton Inscription
-                      SizedBox(
-                        width: double.infinity,
-                        height: 45,
-                        child: ElevatedButton(
-                          onPressed: _signup,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF7AD19),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            "S'inscrire",
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
+                  // Champs
+                  _buildTextField(
+                    controller: nameController,
+                    label: "Nom complet",
+                    icon: Icons.person,
+                  ),
+                  const SizedBox(height: 12),
+
+                  _buildTextField(
+                    controller: emailController,
+                    label: "Email",
+                    icon: Icons.email,
+                    inputType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 12),
+
+                  _buildTextField(
+                    controller: birthDateController,
+                    label: "Date de naissance",
+                    icon: Icons.calendar_today,
+                    readOnly: true,
+                    onTap: _selectDate,
+                  ),
+                  const SizedBox(height: 12),
+
+                  _buildTextField(
+                    controller: passwordController,
+                    label: "Mot de passe",
+                    icon: Icons.lock,
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 12),
+
+                  _buildTextField(
+                    controller: confirmPasswordController,
+                    label: "Confirmer le mot de passe",
+                    icon: Icons.lock_outline,
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Bouton Inscription
+                  SizedBox(
+                    width: double.infinity,
+                    height: 45,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _signup,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF7AD19),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      const SizedBox(height: 12),
-
-                      // Divider avec "OU"
-                      Row(
-                        children: const [
-                          Expanded(child: Divider()),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              "OU",
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          Expanded(child: Divider()),
-                        ],
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                        "S'inscrire",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(height: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-                      // Bouton Google
-                      SizedBox(
-                        width: double.infinity,
-                        height: 45,
-                        child: OutlinedButton.icon(
-                          onPressed: _signUpWithGoogle,
-                          icon: const Icon(
-                            Icons.account_circle,
-                            color: Colors.red,
-                          ),
-                          label: const Text(
-                            "S'inscrire avec Google",
-                            style: TextStyle(color: Colors.black87),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.grey),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
+                  // OU
+                  const Row(
+                    children: [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          "OU",
+                          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
                         ),
                       ),
-
+                      Expanded(child: Divider()),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 12),
+
+                  // Bouton Google
+                  SizedBox(
+                    width: double.infinity,
+                    height: 45,
+                    child: OutlinedButton.icon(
+                      onPressed: _signUpWithGoogle,
+                      icon: const Icon(Icons.account_circle, color: Colors.red),
+                      label: const Text(
+                        "S'inscrire avec Google",
+                        style: TextStyle(color: Colors.black87),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.grey),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ));
-    }
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    IconData? icon,
+    bool obscureText = false,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    TextInputType inputType = TextInputType.text,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      readOnly: readOnly,
+      onTap: onTap,
+      keyboardType: inputType,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        focusedBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFF053F5C), width: 2.0),
+        ),
+        prefixIcon: icon != null ? Icon(icon, color: Color(0xFF053F5C)) : null,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+    );
+  }
 }

@@ -5,6 +5,11 @@ class SearchPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    return const Center(
+      child: Text(
+        'Page de recherche 🔍',
+        style: TextStyle(fontSize: 20),
+      ),
+    );
   }
 }

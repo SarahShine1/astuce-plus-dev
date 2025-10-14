@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:frontend/pages/welcome_page.dart';
 import 'package:frontend/pages/profile_page.dart';
 import 'package:frontend/components/navbar.dart';
+import 'package:frontend/pages/profile_setup_page.dart';
+import 'package:frontend/pages/astuce_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,7 +17,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Mon App',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home:  WelcomePage()// ✅ no const here
+      home: AstucePage(username: ''), // ✅ Ajoute le username ici
+
+
     );
   }
 }

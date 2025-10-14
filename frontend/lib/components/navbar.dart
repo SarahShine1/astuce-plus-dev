@@ -1,66 +1,42 @@
 import 'package:flutter/material.dart';
-import '../widgets/custom_bottom_navbar.dart';
 import '../pages/home_page.dart';
 import '../pages/search_page.dart';
-import '../pages/post_page.dart';
+import 'package:frontend/pages/post_page.dart';
 import '../pages/saved_page.dart';
 import '../pages/profile_page.dart';
+import '../widgets/custom_bottom_navbar.dart';
 
 class MainNavigationWrapper extends StatefulWidget {
+  const MainNavigationWrapper({super.key});
+
   @override
-  _MainNavigationWrapperState createState() => _MainNavigationWrapperState();
+  State<MainNavigationWrapper> createState() => _MainNavigationWrapperState();
 }
 
 class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
-  int _currentIndex = 0;
-  late PageController _pageController;
+  int _selectedIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController();
-  }
+  final List<Widget> _pages =  [
+    HomePage(),
+    SearchPage(),
+    PostPage(), // ✅ ta page de partage
+    SavedPage(),
+    ProfilePage(),
+  ];
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  void _onNavTap(int index) {
+  void _onItemTapped(int index) {
     setState(() {
-      _currentIndex = index;
-    });
-    _pageController.animateToPage(
-      index,
-      duration: Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  void _onPageChanged(int index) {
-    setState(() {
-      _currentIndex = index;
+      _selectedIndex = index;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: _onPageChanged,
-        children: [
-          HomePage(),
-          SearchPage(),
-          PostPage(),
-          SavedPage(),
-          ProfilePage(),
-        ],
-      ),
+      body: _pages[_selectedIndex], // ✅ affichage dynamique
       bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: _currentIndex,
-        onTap: _onNavTap,
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
       ),
     );
   }

@@ -152,7 +152,7 @@ class _OnloadingPageState extends State<OnloadingPage> {
                     height: 60,
 
                     child: WelcomeButton(
-                      buttonText: "Se connecter/S'inscrire",
+                      buttonText: "Se connecter",
                       color: const Color(0xFFF7AD19),
 
                       onTap: () {
