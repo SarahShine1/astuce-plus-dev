@@ -65,7 +65,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const HomePage()),
+      MaterialPageRoute(builder: (context) => const HomePage(userId: 112)),
     );
   }
 

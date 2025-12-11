@@ -3,6 +3,7 @@ import 'package:frontend/pages/login_page.dart';
 import 'package:frontend/pages/signup_page.dart';
 import 'package:frontend/widgets/welcome_button.dart';
 import 'package:frontend/widgets/button.dart';
+import 'package:frontend/pages/home_page.dart';
 
 class OnloadingPage extends StatefulWidget {
   const OnloadingPage({super.key});
@@ -140,7 +141,7 @@ class _OnloadingPageState extends State<OnloadingPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const SignupPage(),
+                            builder: (context) => const HomePage(),
                           ),
                         );
                       },

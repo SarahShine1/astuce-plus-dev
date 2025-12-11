@@ -5,6 +5,7 @@ import 'package:frontend/pages/post_page.dart';
 import '../pages/saved_page.dart';
 import '../pages/profile_page.dart';
 import '../widgets/custom_bottom_navbar.dart';
+import 'package:frontend/pages/dictinary_page.dart';
 
 class MainNavigationWrapper extends StatefulWidget {
   const MainNavigationWrapper({super.key});
@@ -17,8 +18,8 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages =  [
-    HomePage(),
-    SearchPage(),
+    HomePage(userId: 112),
+    DictionaryPage(),
     PostPage(), // ✅ ta page de partage
     SavedPage(),
     ProfilePage(),

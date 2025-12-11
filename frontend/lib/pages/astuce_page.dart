@@ -39,8 +39,8 @@ class _AstucePageState extends State<AstucePage>
   final String niveauExperience = 'Débutant';
 
   final List<String> mediaUrls = [
-    'https://via.placeholder.com/300x200.png?text=Image+1',
-    'https://via.placeholder.com/300x200.png?text=Image+2',
+    'https://picsum.photos/300/200',
+    'https://picsum.photos/300/200',
   ];
 
   final List<String> etapes = [
