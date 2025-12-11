@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/pages/signup_page.dart';
 import 'package:frontend/pages/forgot_password_page.dart';
 import 'package:frontend/services/auth_service.dart';
+import 'package:frontend/components/navbar.dart';
 import 'dart:convert';
 
 
@@ -38,7 +39,7 @@ class _LoginPageState extends State<LoginPage> {
           );
 
           // Example: Navigate to home page
-          // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MainNavigationWrapper()));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Erreur: ${response.body}")),
