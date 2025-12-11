@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/pages/login_page.dart';
-import 'package:frontend/pages/signup_page.dart';
+import 'package:frontend/pages/home_page.dart';
 import 'package:frontend/widgets/welcome_button.dart';
 import 'package:frontend/widgets/button.dart';
 
@@ -137,12 +137,7 @@ class _OnloadingPageState extends State<OnloadingPage> {
                     child: WelcomeButton(
                       buttonText: "Continuer en invité",
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SignupPage(),
-                          ),
-                        );
+                        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
                       },
                     ),
                   ),
@@ -156,12 +151,7 @@ class _OnloadingPageState extends State<OnloadingPage> {
                       color: const Color(0xFFF7AD19),
 
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const LoginPage(),
-                          ),
-                        );
+                        Navigator.pushNamed(context, '/login');
                       },
                     ),
                   ),

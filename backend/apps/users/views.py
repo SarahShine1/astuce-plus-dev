@@ -59,7 +59,9 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 # 🟢 Profile endpoint (for authenticated users only)
-class ProfileView(generics.RetrieveAPIView):
+
+    
+class ProfileView(generics.RetrieveUpdateAPIView):  # Changed from RetrieveAPIView
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 

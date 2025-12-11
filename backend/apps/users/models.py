@@ -5,11 +5,13 @@ class CustomUser(AbstractUser):
     ROLE_INSCRIT = 'inscrit'
     ROLE_MODERATOR = 'moderateur'
     ROLE_INVITE = 'invite'
+    ROLE_EXPERT = 'expert'
 
     ROLE_CHOICES = (
         (ROLE_INSCRIT, 'Inscrit'),
         (ROLE_MODERATOR, 'Modérateur'),
         (ROLE_INVITE, 'Invité'),
+        (ROLE_EXPERT, 'Expert'),
     )
 
     # Champs hérités d'AbstractUser: username, first_name, last_name, email, password, is_staff, is_active, etc.
@@ -24,6 +26,9 @@ class CustomUser(AbstractUser):
 
     def is_invite(self):
         return self.role == self.ROLE_INVITE
+    
+    def is_expert(self):
+        return self.role == self.ROLE_EXPERT
 
     def __str__(self):
         return self.username or self.email or str(self.id)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/services/api_service.dart';
 import 'package:frontend/pages/profile_setup_page.dart';
+import 'dart:convert'; 
+import 'package:frontend/services/auth_service.dart';
 import 'dart:async';
 
 
@@ -22,48 +23,84 @@ class _SignupPageState extends State<SignupPage> {
   bool _isLoading = false;
 
   Future<void> _signup() async {
-    String name = nameController.text.trim();
-    String birthDate = birthDateController.text.trim();
-    String email = emailController.text.trim();
-    String password = passwordController.text.trim();
-    String confirmPassword = confirmPasswordController.text.trim();
+  String name = nameController.text.trim();
+  String birthDate = birthDateController.text.trim();
+  String email = emailController.text.trim();
+  String phone = phoneController.text.trim();
+  String password = passwordController.text.trim();
+  String confirmPassword = confirmPasswordController.text.trim();
 
-    if (name.isEmpty || birthDate.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-      _showSnackBar("Veuillez remplir tous les champs");
-      return;
-    }
-
-    if (password != confirmPassword) {
-      _showSnackBar("Les mots de passe ne correspondent pas");
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      bool success = await ApiService.register(
-        name: name,
-        email: email,
-        password: password,
-        birthDate: birthDate,
-      ).timeout(const Duration(seconds: 10)); // ✅ évite blocage infini
-
-      setState(() => _isLoading = false);
-
-      if (success) {
-        _showSnackBar("Inscription réussie 🎉");
-        Navigator.pushReplacementNamed(context, '/home'); // ✅ Navigation directe vers Home
-      } else {
-        _showSnackBar("Échec de l’inscription ❌");
-      }
-    } on TimeoutException {
-      setState(() => _isLoading = false);
-      _showSnackBar("Le serveur ne répond pas. Réessayez plus tard.");
-    } catch (e) {
-      setState(() => _isLoading = false);
-      _showSnackBar("Erreur : $e");
-    }
+  if (name.isEmpty || birthDate.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+    _showSnackBar("Veuillez remplir tous les champs");
+    return;
   }
+
+  if (password != confirmPassword) {
+    _showSnackBar("Les mots de passe ne correspondent pas");
+    return;
+  }
+
+  if (password.length < 8) {
+    _showSnackBar("Le mot de passe doit contenir au moins 8 caractères");
+    return;
+  }
+
+  if (phone.length < 8) {
+    _showSnackBar("Le numéro de téléphone semble invalide");
+    return;
+  }
+
+  setState(() => _isLoading = true);
+
+  try {
+    // Calculate age from birthDate
+    final parts = birthDate.split('/');
+    int? age;
+    if (parts.length == 3) {
+      final birthYear = int.tryParse(parts[2]);
+      if (birthYear != null) {
+        age = DateTime.now().year - birthYear;
+      }
+    }
+
+    final response = await AuthService().register(
+      username: name.toLowerCase().replaceAll(' ', '_'), // Create username from name
+      email: email,
+      password: password,
+      password2: confirmPassword,
+      nom: name,
+      age: age,
+    );
+
+    setState(() => _isLoading = false);
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      _showSnackBar("Inscription réussie 🎉");
+      
+      // Navigate to profile setup
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => ProfileSetupPage()),
+      );
+    } else {
+      final errorData = jsonDecode(response.body);
+      String errorMessage = "Échec de l'inscription";
+      
+      // Extract error message from response
+      if (errorData is Map) {
+        errorMessage = errorData.values.first.toString();
+      }
+      
+      _showSnackBar(errorMessage);
+    }
+  } on TimeoutException {
+    setState(() => _isLoading = false);
+    _showSnackBar("Le serveur ne répond pas. Réessayez plus tard.");
+  } catch (e) {
+    setState(() => _isLoading = false);
+    _showSnackBar("Erreur : $e");
+  }
+}
 
 
   void _signUpWithGoogle() {
@@ -172,6 +209,14 @@ class _SignupPageState extends State<SignupPage> {
                     label: "Email",
                     icon: Icons.email,
                     inputType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 12),
+
+                  _buildTextField(
+                    controller: phoneController,
+                    label: "Numéro de téléphone",
+                    icon: Icons.phone,
+                    inputType: TextInputType.phone,
                   ),
                   const SizedBox(height: 12),
 
