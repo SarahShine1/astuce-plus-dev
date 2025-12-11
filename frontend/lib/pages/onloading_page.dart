@@ -137,7 +137,16 @@ class _OnloadingPageState extends State<OnloadingPage> {
                     child: WelcomeButton(
                       buttonText: "Continuer en invité",
                       onTap: () {
-                        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const HomePage(isGuest: true),
+                          ),
+                        );
+
+                        
+
                       },
                     ),
                   ),

@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/pages/dictinary_page.dart';
+import 'package:frontend/pages/edit_profile_page.dart';
+import 'package:frontend/pages/forgot_password_page.dart';
+import 'package:frontend/pages/home_page.dart';
 import 'package:frontend/pages/login_page.dart';
+import 'package:frontend/pages/onloading_page.dart';
+import 'package:frontend/pages/post_page.dart';
+import 'package:frontend/pages/saved_page.dart';
 import 'package:frontend/pages/signup_page.dart';
+import 'package:frontend/pages/welcome_page.dart';
 import 'package:frontend/pages/profile_page.dart';
 import 'package:frontend/components/navbar.dart';
 import 'package:frontend/pages/profile_setup_page.dart';
 import 'package:frontend/pages/astuce_page.dart';
-import 'package:frontend/pages/welcome_page.dart';
-import 'package:frontend/pages/onloading_page.dart';
-import 'package:frontend/pages/home_page.dart';
 import 'package:frontend/pages/search_page.dart';
-import 'package:frontend/pages/saved_page.dart';
+import 'package:frontend/pages/experts/dashboard.dart';
 
 void main() {
   runApp(const MyApp());
@@ -36,7 +41,13 @@ class MyApp extends StatelessWidget {
         '/profile': (_) => const ProfilePage(),
         '/profile-setup': (_) => const ProfileSetupPage(),
         '/astuce': (_) => AstucePage(username: ''),
-      },
+        // Friend's new routes:
+        '/dictionary': (_) => const DictionaryPage(),
+        '/edit-profile': (_) => const EditProfilePage(),
+        '/forgot-password': (_) => const ForgotPasswordPage(),
+        '/post': (_) => const PostPage(),
+        '/moderator-dashboard': (_) => const ModeratorDashboard(),
+        },
     );
   }
 }

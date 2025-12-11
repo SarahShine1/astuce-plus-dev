@@ -24,18 +24,18 @@ class CustomBottomNavBar extends StatelessWidget {
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
             blurRadius: 10,
-            offset: Offset(0, -2),
+            offset: const Offset(0, -2),
           ),
         ],
       ),
       child: SafeArea(
-        child: Container(
+        child: SizedBox(
           height: 70,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(0, Icons.home_outlined, Icons.home, 'Accueil'),
-              _buildNavItem(1, Icons.search, Icons.search, 'Rechercher'),
+              _buildNavItem(1, Icons.menu_book_outlined, Icons.menu_book, 'Dictionnaire'), // ✅ changé ici
               _buildNavItem(2, Icons.add_circle_outline, Icons.add_circle, 'Ajouter'),
               _buildNavItem(3, Icons.bookmark_border, Icons.bookmark, 'Favoris'),
               _buildNavItem(4, Icons.person_outline, Icons.person, 'Profil'),
@@ -53,8 +53,8 @@ class CustomBottomNavBar extends StatelessWidget {
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: isSelected ? accentOrange.withOpacity(0.1) : Colors.transparent,
@@ -64,7 +64,7 @@ class CustomBottomNavBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedSwitcher(
-              duration: Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 200),
               child: Icon(
                 isSelected ? activeIcon : inactiveIcon,
                 key: ValueKey(isSelected),
@@ -72,7 +72,7 @@ class CustomBottomNavBar extends StatelessWidget {
                 color: isSelected ? accentOrange : Colors.grey[600],
               ),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
