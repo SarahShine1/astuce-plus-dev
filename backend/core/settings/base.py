@@ -11,17 +11,32 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 AUTH_USER_MODEL = 'users.CustomUser'
 
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
+SECRET_KEY = 'django-insecure-zhfz$v#2^#6v@+6%&91743*f4pl+_9w9ahnpi%bnt=p5)6vp(h'
+
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # 1 hour token validity
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # refresh token validity
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -46,8 +61,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-     'astuces',
-     'users',
+     'apps.users',
+     'apps.astuces',
 ]
 
 MIDDLEWARE = [
@@ -88,7 +103,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'astuce_plus',
         'USER': 'postgres',
-        'PASSWORD': 'nina2003',
+        'PASSWORD': '1234',
         'HOST': 'localhost',
         'PORT': '5432',
     }
