@@ -29,14 +29,28 @@ class Astuce(models.Model):
         return self.titre
 
 class Proposition(models.Model):
-    contenu = models.TextField()
+    STATUT_CHOICES = (
+        ('en_attente', 'En attente'),
+        ('en_revision', 'En révision'),
+        ('acceptee', 'Acceptée'),
+        ('rejetee', 'Rejetée'),
+    )
+    
+    titre = models.CharField(max_length=255)
+    description = models.TextField()
+    source = models.CharField(max_length=255, blank=True, null=True)
+    categories = models.ManyToManyField(Categorie, blank=True, related_name='propositions')
     date = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_attente')
+    commentaire_moderation = models.TextField(blank=True, null=True)
+    
     utilisateur = models.ForeignKey(User, on_delete=models.CASCADE, related_name='propositions')
-    # Optionnel: lien vers une future astuce
     astuce = models.OneToOneField(Astuce, on_delete=models.SET_NULL, null=True, blank=True, related_name='proposition_origine')
 
     def __str__(self):
-        return f"Proposition {self.id} par {self.utilisateur}"
+        return f"Proposition: {self.titre} - {self.get_statut_display()}"
 
 class Validation(models.Model):
     STATUT_ACCEPT = 'acceptee'
