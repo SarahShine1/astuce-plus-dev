@@ -5,6 +5,8 @@ import 'package:frontend/pages/forgot_password_page.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
+import 'package:frontend/components/navbar.dart'; // Si MainNavigationWrapper est dans navbar.dart
+
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -39,30 +41,37 @@ class _LoginPageState extends State<LoginPage> {
       final response = await AuthService().login(username, password);
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        String accessToken = data["access"];
-        String refreshToken = data["refresh"];
-        Map<String, dynamic> user = data["user"];
+  final data = jsonDecode(response.body);
+  String accessToken = data["access"];
+  String refreshToken = data["refresh"];
+  Map<String, dynamic> user = data["user"];
 
-        // Save tokens securely
-        await storage.write(key: 'access_token', value: accessToken);
-        await storage.write(key: 'refresh_token', value: refreshToken);
-        await storage.write(key: 'user_data', value: jsonEncode(user));
+  // Save tokens securely
+  await storage.write(key: 'access_token', value: accessToken);
+  await storage.write(key: 'refresh_token', value: refreshToken);
+  await storage.write(key: 'user_data', value: jsonEncode(user));
 
-        if (_rememberMe) {
-          await storage.write(key: 'remember_me', value: 'true');
-        }
+  if (_rememberMe) {
+    await storage.write(key: 'remember_me', value: 'true');
+  }
 
-        print("✅ Login success for user: ${user['username']}");
+  print("✅ Login success for user: ${user['username']}");
 
-        if (!mounted) return;
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Bienvenue ${user['username']}!")),
-        );
+  if (!mounted) return;
+  
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text("Bienvenue ${user['username']}!")),
+  );
 
-        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-      } else {
+  // 🚀 Navigation vers MainNavigationWrapper (avec navbar)
+Navigator.pushAndRemoveUntil(
+  context,
+  MaterialPageRoute(
+    builder: (context) => MainNavigationWrapper(),
+  ),
+  (route) => false, // Supprime toutes les routes précédentes
+);
+} else {
         final errorData = jsonDecode(response.body);
         if (!mounted) return;
         

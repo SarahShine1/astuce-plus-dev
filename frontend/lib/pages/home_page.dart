@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:frontend/pages/astuce_page.dart';
+import 'package:frontend/services/AstuceService.dart';
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class HomePage extends StatefulWidget {
   final int? userId;
+
   final String? userName;
   final String? userAvatar;
   final bool isAdmin;
   final bool isGuest;
 
+
+
   const HomePage({
     Key? key,
     this.userId,
-    this.userName,
+    this.userName = "Utilisateur",
     this.userAvatar,
     this.isAdmin = false,
     this.isGuest = false,
@@ -30,20 +34,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   static const Color accentOrange = Color(0xFFF7AD19);
   static const Color lightGray = Color(0xFFF8F9FA);
 
-  // Authentication (from your version)
-  final storage = const FlutterSecureStorage();
-  String displayName = 'Invité';
-  bool isGuest = true;
-  
-  // Astuce logic (from friend's version)
   List<dynamic> astuces = [];
   List<dynamic> filteredAstuces = [];
-  List<String> categories = [];
+  List<dynamic> categories = [];
   String selectedCategory = "Toutes";
   bool isLoading = true;
   String searchQuery = "";
-  String _sortBy = 'date';
+  String _sortBy = '-date_publication';
   bool _isAscending = false;
+
+  final AstuceService _astuceService = AstuceService();
 
   final TextEditingController _searchController = TextEditingController();
   AnimationController? _animationController;
@@ -52,8 +52,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    
-    // Initialize animations (friend's version)
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -62,139 +60,55 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       CurvedAnimation(parent: _animationController!, curve: Curves.easeInOut),
     );
     _animationController!.forward();
-    
-    // Load user (your version) THEN fetch astuces
-    _loadUser().then((_) {
-      fetchAstuces();
-    });
+    fetchAstuces();
   }
 
-  // Your authentication method
-  Future<void> _loadUser() async {
-    final data = await storage.read(key: 'user_data');
-    final token = await storage.read(key: 'access_token');
-    
-    setState(() {
-      if (data != null) {
-        final u = jsonDecode(data);
-        displayName = u['nom'] ?? u['username'] ?? 'Utilisateur';
-        isGuest = token == null || token.isEmpty;
-      } else {
-        displayName = 'Invité';
-        isGuest = true;
-      }
-    });
+  @override
+  void dispose() {
+    _animationController?.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
-  // Friend's astuce fetching method
   Future<void> fetchAstuces() async {
     await Future.delayed(const Duration(seconds: 1));
-
-    final data = [
-      {
-        "id": 1,
-        "titre": "Optimiser sa journée avec la méthode Pomodoro",
-        "description":
-            "Travaillez par sessions de 25 minutes séparées de petites pauses. Cela aide à rester concentré et productif.",
-        "categorie": "Productivité",
-        "image_url":
-            "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=400&q=60",
-        "note_moyenne": 4.5,
-        "est_validee": true,
-      },
-      {
-        "id": 2,
-        "titre": "Recycler ses bocaux pour ranger ses fournitures",
-        "description":
-            "Ne jetez plus vos bocaux en verre ! Utilisez-les pour ranger stylos, boutons ou épices.",
-        "categorie": "Vie quotidienne",
-        "image_url":
-            "https://images.unsplash.com/photo-1591270551370-6e1d6b0b2c8f?auto=format&fit=crop&w=400&q=60",
-        "note_moyenne": 4.2,
-        "est_validee": true,
-      },
-      {
-        "id": 3,
-        "titre": "Sauvegarder ses notes de cours efficacement",
-        "description":
-            "Numérisez vos notes avec une app comme Notion ou Google Keep pour éviter de les perdre.",
-        "categorie": "Études",
-        "image_url":
-            "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=400&q=60",
-        "note_moyenne": 3.8,
-        "est_validee": false,
-      },
-      {
-        "id": 4,
-        "titre": "Apprendre à coder 30 minutes par jour",
-        "description":
-            "Une pratique régulière est plus efficace que de longues sessions irrégulières. La constance est la clé.",
-        "categorie": "Technologie",
-        "image_url":
-            "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=400&q=60",
-        "note_moyenne": 4.8,
-        "est_validee": true,
-      },
-      {
-        "id": 5,
-        "titre": "Respirer profondément pour mieux gérer le stress",
-        "description":
-            "Quelques respirations lentes et profondes aident à calmer le système nerveux et réduire la tension.",
-        "categorie": "Bien-être",
-        "image_url":
-            "https://images.unsplash.com/photo-1551829142-26e3b305307a?auto=format&fit=crop&w=400&q=60",
-        "note_moyenne": 4.6,
-        "est_validee": true,
-      },
-      {
-        "id": 6,
-        "titre": "Désactiver les notifications inutiles",
-        "description":
-            "Moins d'interruptions = plus de concentration. Supprimez les notifications non essentielles.",
-        "categorie": "Productivité",
-        "image_url":
-            "https://images.unsplash.com/photo-1573497019114-07b0642f49b9?auto=format&fit=crop&w=400&q=60",
-        "note_moyenne": 4.0,
-        "est_validee": false,
-      },
-      {
-        "id": 7,
-        "titre": "Faire des listes de tâches réalisables",
-        "description":
-            "Divisez vos grandes tâches en sous-tâches concrètes pour éviter la procrastination.",
-        "categorie": "Productivité",
-        "image_url":
-            "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?auto=format&fit=crop&w=400&q=60",
-        "note_moyenne": 0.0,
-        "est_validee": false,
-      },
-      {
-        "id": 8,
-        "titre": "Utiliser la lumière naturelle pour mieux étudier",
-        "description":
-            "La lumière du jour améliore la concentration et réduit la fatigue visuelle.",
-        "categorie": "Études",
-        "image_url":
-            "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=400&q=60",
-        "note_moyenne": 4.3,
-        "est_validee": true,
-      },
-    ];
-
-    final catSet = <String>{"Toutes"};
-    for (var astuce in data) {
-      if (astuce["categorie"] != null) {
-        catSet.add(astuce["categorie"].toString());
-      }
-    }
-
-    setState(() {
-      astuces = data;
-      categories = catSet.toList();
-      filterAstuces();
-      isLoading = false;
+     setState(() {
+      isLoading = true;
     });
+
+     try {
+      // Récupérer les catégories
+      final categoriesData = await _astuceService.getCategories();
+      
+      // Récupérer les astuces
+      final astucesData = await _astuceService.getAstuces(
+        ordering: _sortBy,
+      );
+
+      setState(() {
+        categories = [
+          {"id": 0, "nom": "Toutes"}, // Catégorie "Toutes" manuelle
+          ...categoriesData,
+        ];
+        
+        astuces = astucesData;
+        filterAstuces();
+        isLoading = false;
+      });
+      
+      print("✅ Data loaded successfully");
+      print("   Categories: ${categories.length}");
+      print("   Astuces: ${astuces.length}");
+    } catch (e) {
+      print("❌ Error loading data: $e");
+      setState(() {
+        isLoading = false;
+      });
+      
+      
+    }
   }
+  
 
   void filterAstuces() {
     List<dynamic> filtered = astuces;
@@ -245,7 +159,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       context,
       MaterialPageRoute(
         builder: (context) => AstucePage(
-          username: widget.userName ?? displayName,
+          username: widget.userName,
           isAdmin: widget.isAdmin,
         ),
       ),
@@ -253,42 +167,30 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   @override
-  void dispose() {
-    _animationController?.dispose();
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // Use displayName from storage if widget.userName is not provided
-    final userName = widget.userName ?? displayName;
-    final userAvatar = widget.userAvatar;
-    final isGuestUser = widget.isGuest || isGuest;
-
     return Scaffold(
       backgroundColor: lightGray,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : CustomScrollView(
-              slivers: [
-                _buildCustomAppBar(userName, userAvatar, isGuestUser),
-                _buildSearchBar(),
-                if (astuces.isNotEmpty) ...[
-                  _buildFilterSection(),
-                  if (filteredAstuces.isEmpty)
-                    SliverFillRemaining(child: _buildNoResultsState())
-                  else
-                    _buildAstucesGrid(),
-                ] else
-                  SliverFillRemaining(child: _buildEmptyState()),
-              ],
-            ),
+        slivers: [
+          _buildCustomAppBar(),
+          _buildSearchBar(),
+          if (astuces.isNotEmpty) ...[
+            _buildFilterSection(),
+            if (filteredAstuces.isEmpty)
+              SliverFillRemaining(child: _buildNoResultsState())
+            else
+              _buildAstucesGrid(),
+          ] else
+            SliverFillRemaining(child: _buildEmptyState()),
+        ],
+      ),
     );
   }
 
   // AppBar personnalisée avec nom et avatar
-  Widget _buildCustomAppBar(String userName, String? userAvatar, bool isGuestUser) {
+  Widget _buildCustomAppBar() {
     return SliverAppBar(
       expandedHeight: 100,
       floating: false,
@@ -317,12 +219,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       CircleAvatar(
                         radius: 24,
                         backgroundColor: Colors.white.withOpacity(0.2),
-                        backgroundImage: userAvatar != null
-                            ? NetworkImage(userAvatar)
+                        backgroundImage: widget.userAvatar != null
+                            ? NetworkImage(widget.userAvatar!)
                             : null,
-                        child: userAvatar == null
+                        child: widget.userAvatar == null
                             ? const Icon(Icons.person,
-                                color: Colors.white, size: 24)
+                            color: Colors.white, size: 24)
                             : null,
                       ),
                       const SizedBox(width: 12),
@@ -339,7 +241,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               ),
                             ),
                             Text(
-                              isGuestUser ? "Invité" : userName,
+                              widget.userName ?? "Utilisateur",
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -417,18 +319,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             controller: _searchController,
             decoration: InputDecoration(
               prefixIcon:
-                  const Icon(Icons.search, color: primaryBlue),
+              const Icon(Icons.search, color: primaryBlue),
               suffixIcon: searchQuery.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, color: primaryBlue),
-                      onPressed: () {
-                        setState(() {
-                          _searchController.clear();
-                          searchQuery = "";
-                        });
-                        filterAstuces();
-                      },
-                    )
+                icon: const Icon(Icons.clear, color: primaryBlue),
+                onPressed: () {
+                  setState(() {
+                    _searchController.clear();
+                    searchQuery = "";
+                  });
+                  filterAstuces();
+                },
+              )
                   : null,
               hintText: "Chercher une astuce...",
               hintStyle: TextStyle(color: Colors.grey[400]),
@@ -561,8 +463,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   final count = category == "Toutes"
                       ? astuces.length
                       : astuces
-                          .where((ast) => ast["categorie"] == category)
-                          .length;
+                      .where((ast) => ast["categorie"] == category)
+                      .length;
 
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -572,7 +474,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         "$category ($count)",
                         style: TextStyle(
                           color:
-                              isSelected ? Colors.white : primaryBlue,
+                          isSelected ? Colors.white : primaryBlue,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -609,12 +511,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               child: SlideTransition(
                 position: _animationController != null
                     ? Tween<Offset>(
-                        begin: const Offset(0, 0.3),
-                        end: Offset.zero,
-                      ).animate(CurvedAnimation(
-                        parent: _animationController!,
-                        curve: Interval(index * 0.1, 1.0),
-                      ))
+                  begin: const Offset(0, 0.3),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(
+                  parent: _animationController!,
+                  curve: Interval(index * 0.1, 1.0),
+                ))
                     : const AlwaysStoppedAnimation(Offset.zero),
                 child: _buildAstuceTile(filteredAstuces[index], index),
               ),
@@ -902,3 +804,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 }
+
+// Importez votre AstucePage ici
+// import 'votre_fichier_astuce_page.dart';

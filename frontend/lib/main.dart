@@ -41,6 +41,8 @@ class MyApp extends StatelessWidget {
         '/profile': (_) => const ProfilePage(),
         '/profile-setup': (_) => const ProfileSetupPage(),
         '/astuce': (_) => AstucePage(username: ''),
+        '/main': (_) => const MainNavigationWrapper(),
+
         // Friend's new routes:
         '/dictionary': (_) => const DictionaryPage(),
         '/edit-profile': (_) => const EditProfilePage(),

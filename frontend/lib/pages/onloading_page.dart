@@ -3,6 +3,8 @@ import 'package:frontend/pages/login_page.dart';
 import 'package:frontend/pages/home_page.dart';
 import 'package:frontend/widgets/welcome_button.dart';
 import 'package:frontend/widgets/button.dart';
+import 'package:frontend/components/navbar.dart';
+
 
 class OnloadingPage extends StatefulWidget {
   const OnloadingPage({super.key});
@@ -136,17 +138,13 @@ class _OnloadingPageState extends State<OnloadingPage> {
                     height: 60,
                     child: WelcomeButton(
                       buttonText: "Continuer en invité",
-                      onTap: () {
-
-                        Navigator.pushReplacement(
+                       onTap: () {
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const HomePage(isGuest: true),
+                            builder: (context) => const HomePage(),
                           ),
                         );
-
-                        
-
                       },
                     ),
                   ),

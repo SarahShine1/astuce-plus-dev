@@ -3,8 +3,11 @@ import 'package:http/http.dart' as http;
 
 class AuthService {
   // 🔹 For Android Emulator use 10.0.2.2
+  //static const String baseUrl = 'http://10.0.2.2:8000/api/users';
   // 🔹 For real device, use your computer's IP (e.g., 192.168.1.XXX)
-  static const String baseUrl = 'http://10.0.2.2:8000/api/users';
+  static const String baseUrl = 'http://192.168.137.1:8000/api/users';
+
+
   
   // 🟢 Register - matches your Django register endpoint
   Future<http.Response> register({
