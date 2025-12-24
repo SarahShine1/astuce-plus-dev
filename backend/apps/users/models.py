@@ -21,6 +21,11 @@ class CustomUser(AbstractUser):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_INSCRIT)
     date_creation = models.DateTimeField(auto_now_add=True)
 
+    bio = models.TextField(blank=True, max_length=500)
+    phone = models.CharField(max_length=20, blank=True)
+    #  NOUVEAU: Avatar pour l'utilisateur
+    avatar = models.ImageField(upload_to='avatars/%Y/%m/%d/', null=True, blank=True)
+
     def is_moderator(self):
         return self.role == self.ROLE_MODERATOR
 

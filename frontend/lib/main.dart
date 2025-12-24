@@ -40,7 +40,7 @@ class MyApp extends StatelessWidget {
         '/signup': (_) => const SignupPage(),
         '/profile': (_) => const ProfilePage(),
         '/profile-setup': (_) => const ProfileSetupPage(),
-        '/astuce': (_) => AstucePage(username: ''),
+        //'/astuce': (_) => AstucePage(username: ''),
         '/main': (_) => const MainNavigationWrapper(),
 
         // Friend's new routes:

@@ -9,6 +9,7 @@ router.register(r'propositions', views.PropositionViewSet, basename='proposition
 router.register(r'evaluations', views.EvaluationViewSet, basename='evaluation')
 router.register(r'favoris', views.FavoriViewSet, basename='favori')
 router.register(r'validations', views.ValidationViewSet, basename='validation')
+router.register(r'termes', views.TermeViewSet, basename='terme')
 
 urlpatterns = [
     path('', include(router.urls)),

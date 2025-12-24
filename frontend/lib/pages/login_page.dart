@@ -94,10 +94,7 @@ Navigator.pushAndRemoveUntil(
     }
   }
 
-  void _signInWithGoogle() {
-    print("Connexion avec Google");
-    // Implement Google authentication logic here
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -248,38 +245,6 @@ Navigator.pushAndRemoveUntil(
                         child: _isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
                             : const Text("Se connecter"),
-                      ),
-                      const SizedBox(height: 15),
-
-                      Row(
-                        children: const [
-                          Expanded(child: Divider()),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              "OU",
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          Expanded(child: Divider()),
-                        ],
-                      ),
-                      const SizedBox(height: 15),
-
-                      OutlinedButton.icon(
-                        onPressed: _signInWithGoogle,
-                        icon: const Icon(Icons.account_circle, color: Colors.red),
-                        label: const Text(
-                          "Continuer avec Google",
-                          style: TextStyle(color: Colors.black87),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                          side: const BorderSide(color: Colors.grey),
-                        ),
                       ),
                       const SizedBox(height: 20),
                     ],

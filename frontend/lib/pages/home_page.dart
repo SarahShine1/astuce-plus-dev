@@ -1,19 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/pages/astuce_page.dart';
 import 'package:frontend/services/AstuceService.dart';
-
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class HomePage extends StatefulWidget {
   final int? userId;
-
   final String? userName;
   final String? userAvatar;
   final bool isAdmin;
   final bool isGuest;
-
-
 
   const HomePage({
     Key? key,
@@ -41,9 +36,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   bool isLoading = true;
   String searchQuery = "";
   String _sortBy = '-date_publication';
-  bool _isAscending = false;
 
   final AstuceService _astuceService = AstuceService();
+  final storage = const FlutterSecureStorage();
+  String? accessToken;
 
   final TextEditingController _searchController = TextEditingController();
   AnimationController? _animationController;
@@ -60,7 +56,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       CurvedAnimation(parent: _animationController!, curve: Curves.easeInOut),
     );
     _animationController!.forward();
+    _loadToken();
     fetchAstuces();
+  }
+
+  Future<void> _loadToken() async {
+    accessToken = await storage.read(key: 'access_token');
   }
 
   @override
@@ -71,26 +72,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Future<void> fetchAstuces() async {
-    await Future.delayed(const Duration(seconds: 1));
-     setState(() {
+    setState(() {
       isLoading = true;
     });
 
-     try {
-      // Récupérer les catégories
+    try {
       final categoriesData = await _astuceService.getCategories();
-      
-      // Récupérer les astuces
-      final astucesData = await _astuceService.getAstuces(
-        ordering: _sortBy,
-      );
+      final astucesData = await _astuceService.getAstuces(ordering: _sortBy);
 
       setState(() {
         categories = [
-          {"id": 0, "nom": "Toutes"}, // Catégorie "Toutes" manuelle
+          {"id": 0, "nom": "Toutes"},
           ...categoriesData,
         ];
-        
         astuces = astucesData;
         filterAstuces();
         isLoading = false;
@@ -99,21 +93,87 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       print("✅ Data loaded successfully");
       print("   Categories: ${categories.length}");
       print("   Astuces: ${astuces.length}");
+      
+      // DEBUG: Log image URLs
+      for (var astuce in astuces.take(3)) {
+        print("   Astuce: ${astuce['titre']}");
+        print("   Image URL: ${astuce['image_url']}");
+        print("   Image field: ${astuce['image']}");
+      }
     } catch (e) {
       print("❌ Error loading data: $e");
       setState(() {
         isLoading = false;
       });
       
-      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de chargement: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
-  
+
+  // Helper pour créer un avatar avec fallback
+  ImageProvider? _getAvatarImage(String? imageUrl) {
+    if (imageUrl != null && imageUrl.isNotEmpty && imageUrl != 'null') {
+      return NetworkImage(imageUrl);
+    }
+    return null;
+  }
+
+  // Widget d'avatar avec fallback
+  Widget _buildAvatarWidget(String? imageUrl, {double radius = 20}) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundImage: _getAvatarImage(imageUrl),
+      backgroundColor: Colors.grey[300],
+      child: _getAvatarImage(imageUrl) == null
+          ? const Icon(Icons.person, color: Colors.white, size: 24)
+          : null,
+    );
+  }
+
+  // Widget pour afficher image astuce avec fallback
+  Widget _buildAstuceImageWidget(String? imageUrl) {
+    if (imageUrl != null && imageUrl.isNotEmpty && imageUrl != 'null') {
+      return Image.network(
+        imageUrl,
+        width: double.infinity,
+        height: 180,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: double.infinity,
+            height: 180,
+            color: Colors.grey[200],
+            child: Icon(
+              Icons.lightbulb_outline,
+              size: 60,
+              color: Colors.grey[400],
+            ),
+          );
+        },
+      );
+    }
+    return Container(
+      width: double.infinity,
+      height: 180,
+      color: Colors.grey[200],
+      child: Icon(
+        Icons.lightbulb_outline,
+        size: 60,
+        color: Colors.grey[400],
+      ),
+    );
+  }
 
   void filterAstuces() {
     List<dynamic> filtered = astuces;
 
-    // Filtrage par recherche
     if (searchQuery.isNotEmpty) {
       filtered = filtered.where((astuce) {
         final titre = astuce["titre"]?.toLowerCase() ?? "";
@@ -123,35 +183,71 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       }).toList();
     }
 
-    // Filtrage par catégorie
     if (selectedCategory != "Toutes") {
-      filtered = filtered
-          .where((astuce) => astuce["categorie"] == selectedCategory)
-          .toList();
+      filtered = filtered.where((astuce) {
+        final astuceCategories = astuce["categories"] as List?;
+        if (astuceCategories == null || astuceCategories.isEmpty) return false;
+        return astuceCategories.any((cat) => cat["nom"] == selectedCategory);
+      }).toList();
     }
-
-    // Tri
-    filtered.sort((a, b) {
-      int comparison;
-      switch (_sortBy) {
-        case 'title':
-          comparison = (a["titre"] ?? "").compareTo(b["titre"] ?? "");
-          break;
-        case 'category':
-          comparison =
-              (a["categorie"] ?? "").compareTo(b["categorie"] ?? "");
-          break;
-        case 'date':
-        default:
-          comparison = 0;
-          break;
-      }
-      return _isAscending ? comparison : -comparison;
-    });
 
     setState(() {
       filteredAstuces = filtered;
     });
+  }
+
+  Future<void> _toggleFavori(int astuceId) async {
+    if (widget.isGuest || accessToken == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connectez-vous pour ajouter aux favoris'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Trouver et inverser l'état localement pour UX immédiate
+      final astuce = astuces.firstWhere((a) => a["id"] == astuceId);
+      final wasFiltered = filteredAstuces.contains(astuce);
+      
+      // Inverser l'état immédiatement dans la UI
+      setState(() {
+        astuce["est_favori"] = !(astuce["est_favori"] ?? false);
+      });
+
+      // Appeler l'API
+      final result = await _astuceService.toggleFavori(
+        astuceId: astuceId,
+        accessToken: accessToken!,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Favori mis à jour'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        // Recharger pour synchroniser avec le serveur
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) fetchAstuces();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        // Recharger pour rétablir l'état correct en cas d'erreur
+        fetchAstuces();
+      }
+    }
   }
 
   void _navigateToAstuceDetail(dynamic astuce) {
@@ -159,11 +255,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       context,
       MaterialPageRoute(
         builder: (context) => AstucePage(
+          astuceId: astuce["id"],
           username: widget.userName,
           isAdmin: widget.isAdmin,
         ),
       ),
-    );
+    ).then((_) => fetchAstuces()); // Refresh on return
   }
 
   @override
@@ -172,24 +269,26 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       backgroundColor: lightGray,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
-        slivers: [
-          _buildCustomAppBar(),
-          _buildSearchBar(),
-          if (astuces.isNotEmpty) ...[
-            _buildFilterSection(),
-            if (filteredAstuces.isEmpty)
-              SliverFillRemaining(child: _buildNoResultsState())
-            else
-              _buildAstucesGrid(),
-          ] else
-            SliverFillRemaining(child: _buildEmptyState()),
-        ],
-      ),
+          : RefreshIndicator(
+              onRefresh: fetchAstuces,
+              child: CustomScrollView(
+                slivers: [
+                  _buildCustomAppBar(),
+                  _buildSearchBar(),
+                  if (astuces.isNotEmpty) ...[
+                    _buildFilterSection(),
+                    if (filteredAstuces.isEmpty)
+                      SliverFillRemaining(child: _buildNoResultsState())
+                    else
+                      _buildAstucesGrid(),
+                  ] else
+                    SliverFillRemaining(child: _buildEmptyState()),
+                ],
+              ),
+            ),
     );
   }
 
-  // AppBar personnalisée avec nom et avatar
   Widget _buildCustomAppBar() {
     return SliverAppBar(
       expandedHeight: 100,
@@ -212,21 +311,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Profil utilisateur
                 Expanded(
                   child: Row(
                     children: [
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        backgroundImage: widget.userAvatar != null
-                            ? NetworkImage(widget.userAvatar!)
-                            : null,
-                        child: widget.userAvatar == null
-                            ? const Icon(Icons.person,
-                            color: Colors.white, size: 24)
-                            : null,
-                      ),
+                      _buildAvatarWidget(widget.userAvatar, radius: 24),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -255,41 +343,39 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     ],
                   ),
                 ),
-                // Icône notifications
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Stack(
-                    children: [
-                      Center(
-                        child: IconButton(
-                          icon: const Icon(Icons.notifications_none,
-                              color: Colors.white),
-                          onPressed: () {
-                            // Action notifications
-                          },
-                          padding: EdgeInsets.zero,
-                        ),
-                      ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: accentOrange,
-                            borderRadius: BorderRadius.circular(4),
+                if (!widget.isGuest)
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: IconButton(
+                            icon: const Icon(Icons.notifications_none,
+                                color: Colors.white),
+                            onPressed: () {},
+                            padding: EdgeInsets.zero,
                           ),
                         ),
-                      ),
-                    ],
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: accentOrange,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -298,7 +384,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // Barre de recherche
   Widget _buildSearchBar() {
     return SliverToBoxAdapter(
       child: Padding(
@@ -318,19 +403,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              prefixIcon:
-              const Icon(Icons.search, color: primaryBlue),
+              prefixIcon: const Icon(Icons.search, color: primaryBlue),
               suffixIcon: searchQuery.isNotEmpty
                   ? IconButton(
-                icon: const Icon(Icons.clear, color: primaryBlue),
-                onPressed: () {
-                  setState(() {
-                    _searchController.clear();
-                    searchQuery = "";
-                  });
-                  filterAstuces();
-                },
-              )
+                      icon: const Icon(Icons.clear, color: primaryBlue),
+                      onPressed: () {
+                        setState(() {
+                          _searchController.clear();
+                          searchQuery = "";
+                        });
+                        filterAstuces();
+                      },
+                    )
                   : null,
               hintText: "Chercher une astuce...",
               hintStyle: TextStyle(color: Colors.grey[400]),
@@ -351,7 +435,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // Section des filtres par catégorie
   Widget _buildFilterSection() {
     return SliverToBoxAdapter(
       child: Container(
@@ -374,76 +457,73 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   icon: const Icon(Icons.sort, color: primaryBlue),
                   onSelected: (value) {
                     setState(() {
-                      if (value == _sortBy) {
-                        _isAscending = !_isAscending;
-                      } else {
-                        _sortBy = value;
-                        _isAscending = false;
-                      }
-                      filterAstuces();
+                      _sortBy = value;
+                      fetchAstuces();
                     });
                   },
                   itemBuilder: (context) => [
                     PopupMenuItem(
-                      value: 'date',
+                      value: '-date_publication',
                       child: Row(
                         children: [
                           Icon(Icons.access_time,
-                              color: _sortBy == 'date'
+                              color: _sortBy == '-date_publication'
                                   ? accentOrange
                                   : Colors.grey),
                           const SizedBox(width: 8),
-                          const Text('Date'),
-                          if (_sortBy == 'date') ...[
-                            const Spacer(),
-                            Icon(
-                                _isAscending
-                                    ? Icons.arrow_upward
-                                    : Icons.arrow_downward,
-                                size: 16),
-                          ],
+                          const Text('Plus récentes'),
                         ],
                       ),
                     ),
                     PopupMenuItem(
-                      value: 'title',
+                      value: 'date_publication',
                       child: Row(
                         children: [
-                          Icon(Icons.title,
-                              color: _sortBy == 'title'
+                          Icon(Icons.history,
+                              color: _sortBy == 'date_publication'
                                   ? accentOrange
                                   : Colors.grey),
                           const SizedBox(width: 8),
-                          const Text('Titre'),
-                          if (_sortBy == 'title') ...[
-                            const Spacer(),
-                            Icon(
-                                _isAscending
-                                    ? Icons.arrow_upward
-                                    : Icons.arrow_downward,
-                                size: 16),
-                          ],
+                          const Text('Plus anciennes'),
                         ],
                       ),
                     ),
                     PopupMenuItem(
-                      value: 'category',
+                      value: 'titre',
                       child: Row(
                         children: [
-                          Icon(Icons.category,
-                              color: _sortBy == 'category'
+                          Icon(Icons.sort_by_alpha,
+                              color: _sortBy == 'titre'
                                   ? accentOrange
                                   : Colors.grey),
                           const SizedBox(width: 8),
-                          const Text('Catégorie'),
-                          if (_sortBy == 'category') ...[
-                            const Spacer(),
-                            Icon(
-                                _isAscending
-                                    ? Icons.arrow_upward
-                                    : Icons.arrow_downward,
-                                size: 16),
-                          ],
+                          const Text('Titre A-Z'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: '-titre',
+                      child: Row(
+                        children: [
+                          Icon(Icons.sort_by_alpha,
+                              color: _sortBy == '-titre'
+                                  ? accentOrange
+                                  : Colors.grey),
+                          const SizedBox(width: 8),
+                          const Text('Titre Z-A'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: '-score_fiabilite',
+                      child: Row(
+                        children: [
+                          Icon(Icons.star,
+                              color: _sortBy == '-score_fiabilite'
+                                  ? accentOrange
+                                  : Colors.grey),
+                          const SizedBox(width: 8),
+                          const Text('Mieux notées'),
                         ],
                       ),
                     ),
@@ -459,22 +539,25 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 itemCount: categories.length,
                 itemBuilder: (context, index) {
                   final category = categories[index];
-                  final isSelected = selectedCategory == category;
-                  final count = category == "Toutes"
+                  final categoryName = category["nom"] ?? "";
+                  final isSelected = selectedCategory == categoryName;
+                  
+                  final count = categoryName == "Toutes"
                       ? astuces.length
-                      : astuces
-                      .where((ast) => ast["categorie"] == category)
-                      .length;
+                      : astuces.where((ast) {
+                          final astuceCategories = ast["categories"] as List?;
+                          if (astuceCategories == null) return false;
+                          return astuceCategories.any((cat) => cat["nom"] == categoryName);
+                        }).length;
 
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilterChip(
                       selected: isSelected,
                       label: Text(
-                        "$category ($count)",
+                        "$categoryName ($count)",
                         style: TextStyle(
-                          color:
-                          isSelected ? Colors.white : primaryBlue,
+                          color: isSelected ? Colors.white : primaryBlue,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -484,7 +567,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       elevation: isSelected ? 4 : 2,
                       onSelected: (selected) {
                         setState(() {
-                          selectedCategory = category;
+                          selectedCategory = categoryName;
                           filterAstuces();
                         });
                       },
@@ -499,26 +582,28 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // Grille des astuces
   Widget _buildAstucesGrid() {
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
-              (context, index) {
+          (context, index) {
             return FadeTransition(
               opacity: _fadeAnimation ?? const AlwaysStoppedAnimation(1.0),
               child: SlideTransition(
                 position: _animationController != null
                     ? Tween<Offset>(
-                  begin: const Offset(0, 0.3),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: _animationController!,
-                  curve: Interval(index * 0.1, 1.0),
-                ))
+                        begin: const Offset(0, 0.3),
+                        end: Offset.zero,
+                      ).animate(CurvedAnimation(
+                        parent: _animationController!,
+                        curve: Interval(
+                          index * 0.1 > 1.0 ? 1.0 : index * 0.1,
+                          1.0,
+                        ),
+                      ))
                     : const AlwaysStoppedAnimation(Offset.zero),
-                child: _buildAstuceTile(filteredAstuces[index], index),
+                child: _buildAstuceTile(filteredAstuces[index]),
               ),
             );
           },
@@ -528,10 +613,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // Carte d'astuce
-  Widget _buildAstuceTile(dynamic astuce, int index) {
-    final bool isValidated = astuce["est_validee"] ?? false;
-    final double note = (astuce["note_moyenne"] ?? 0.0).toDouble();
+  Widget _buildAstuceTile(dynamic astuce) {
+    final bool isValidated = astuce["valide"] ?? false;
+    final double averageRating = (astuce["average_rating"] ?? 0.0).toDouble();
+    
+    final categories = astuce["categories"] as List?;
+    final categorieName = (categories != null && categories.isNotEmpty) 
+        ? categories[0]["nom"] 
+        : "Autre";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -546,25 +635,20 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image en haut avec badge de validation
               Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                    child: Image.network(
-                      astuce["image_url"] ?? "https://via.placeholder.com/400x200",
-                      width: double.infinity,
-                      height: 180,
-                      fit: BoxFit.cover,
-                    ),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(20)),
+                    child: _buildAstuceImageWidget(astuce["image_url"]),
                   ),
-                  // Badge de validation
                   if (isValidated)
                     Positioned(
                       top: 12,
                       right: 12,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.green,
                           borderRadius: BorderRadius.circular(20),
@@ -593,12 +677,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         ),
                       ),
                     ),
-                  // Badge catégorie
                   Positioned(
                     top: 12,
                     left: 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: accentOrange,
                         borderRadius: BorderRadius.circular(20),
@@ -611,7 +695,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         ],
                       ),
                       child: Text(
-                        astuce["categorie"] ?? "Autre",
+                        categorieName,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -622,13 +706,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   ),
                 ],
               ),
-              // Contenu
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Titre
                     Text(
                       astuce["titre"] ?? "Sans titre",
                       style: const TextStyle(
@@ -640,7 +722,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
-                    // Description
                     Text(
                       astuce["description"] ?? "Pas de description",
                       style: TextStyle(
@@ -652,39 +733,26 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 16),
-                    // Note et action
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Note
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.star,
-                              color: note > 0 ? Colors.amber : Colors.grey[300],
-                              size: 20,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              note > 0 ? note.toStringAsFixed(1) : "Non notée",
-                              style: TextStyle(
-                                color: note > 0 ? primaryBlue : Colors.grey[500],
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                        Icon(
+                          Icons.star,
+                          color: averageRating > 0
+                              ? Colors.amber
+                              : Colors.grey[300],
+                          size: 20,
                         ),
-                        // Bouton favori
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.favorite_border, color: Colors.red, size: 22),
-                            onPressed: () {},
-                            tooltip: "Ajouter aux favoris",
+                        const SizedBox(width: 6),
+                        Text(
+                          averageRating > 0
+                              ? "${averageRating.toStringAsFixed(1)}/5"
+                              : "Non notée",
+                          style: TextStyle(
+                            color: averageRating > 0
+                                ? primaryBlue
+                                : Colors.grey[500],
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -797,6 +865,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 ),
                 textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: fetchAstuces,
+                icon: const Icon(Icons.refresh),
+                label: const Text("Actualiser"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: accentOrange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -804,6 +889,3 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 }
-
-// Importez votre AstucePage ici
-// import 'votre_fichier_astuce_page.dart';

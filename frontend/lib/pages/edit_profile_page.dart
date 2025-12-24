@@ -2,6 +2,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend/pages/change_password_page.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:frontend/services/UserService.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+const Color accentOrange = Color(0xFFF7AD19);
+
+
+final UserService _userService = UserService();
+final storage = const FlutterSecureStorage();
 
 const Color primaryBlue = Color(0xFF1565C0);
 const Color lightBlue = Color(0xFF64B5F6);
@@ -74,6 +81,74 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
     phoneController.dispose();
     interestsController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAvatarImage() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(25),
+              topRight: Radius.circular(25),
+            ),
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 50,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Choisir une photo de profil',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: primaryBlue,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildImagePickerOption(
+                    icon: Icons.camera_alt,
+                    label: 'Caméra',
+                    onTap: () => _pickAvatarFromSource(ImageSource.camera),
+                  ),
+                  _buildImagePickerOption(
+                    icon: Icons.photo_library,
+                    label: 'Galerie',
+                    onTap: () => _pickAvatarFromSource(ImageSource.gallery),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickAvatarFromSource(ImageSource source) async {
+    Navigator.pop(context);
+    final pickedImage = await ImagePicker().pickImage(source: source);
+    if (pickedImage != null) {
+      setState(() {
+        profileImagePath = pickedImage.path;
+      });
+    }
   }
 
   Future<void> _pickImage() async {
@@ -175,24 +250,89 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
     }
   }
 
-  Future<void> _saveProfile() async {
+  // Replace the _saveProfile method
+Future<void> _saveProfile() async {
+  setState(() {
+    _isLoading = true;
+  });
+
+  try {
+    final accessToken = await storage.read(key: 'access_token');
+    
+    if (accessToken == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Session expirée, veuillez vous reconnecter'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Update profile via API
+    File? avatarFile = profileImagePath != null && !profileImagePath!.startsWith('http')
+        ? File(profileImagePath!)
+        : null;
+
+    final result = await _userService.updateProfile(
+      accessToken: accessToken,
+      nom: nameController.text,
+      email: emailController.text,
+      bio: bioController.text,
+      phone: phoneController.text,  // 🆕 ADDED
+      centresInteret: interestsController.text,  // 🆕 ADDED
+      avatarFile: avatarFile,  // 🆕 ADDED
+    );
+
+    if (result != null && mounted) {
+      // Success
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profil mis à jour avec succès'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      Navigator.pop(context, {
+        'name': nameController.text,
+        'username': usernameController.text,
+        'email': emailController.text,
+        'bio': bioController.text,
+        'phone': phoneController.text,
+        'interests': interestsController.text,
+        'profileImage': profileImagePath,
+      });
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de la mise à jour'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  } catch (e) {
+    print("❌ Error saving profile: $e");
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  } finally {
     setState(() {
-      _isLoading = true;
-    });
-
-    // Simulation d'une sauvegarde
-    await Future.delayed(const Duration(seconds: 1));
-
-    Navigator.pop(context, {
-      'name': nameController.text,
-      'username': usernameController.text,
-      'email': emailController.text,
-      'bio': bioController.text,
-      'phone': phoneController.text,
-      'interests': interestsController.text,
-      'profileImage': profileImagePath,
+      _isLoading = false;
     });
   }
+}
 
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
@@ -359,16 +499,19 @@ class _EditProfilePageState extends State<EditProfilePage> with TickerProviderSt
                                 Positioned(
                                   bottom: 0,
                                   right: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: const BoxDecoration(
-                                      color: primaryBlue,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.camera_alt,
-                                      color: Colors.white,
-                                      size: 20,
+                                  child: GestureDetector(
+                                    onTap: _pickAvatarImage,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: const BoxDecoration(
+                                        color: primaryBlue,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.camera_alt,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
                                     ),
                                   ),
                                 ),

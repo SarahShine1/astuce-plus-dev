@@ -139,10 +139,17 @@ class _OnloadingPageState extends State<OnloadingPage> {
                     child: WelcomeButton(
                       buttonText: "Continuer en invité",
                        onTap: () {
+                        // ✅ Passer les paramètres pour le mode invité
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const HomePage(),
+                            builder: (context) => const HomePage(
+                              userId: null,
+                              userName: "Invité",
+                              userAvatar: null,
+                              isAdmin: false,
+                              isGuest: true,
+                            ),
                           ),
                         );
                       },

@@ -152,4 +152,71 @@ class AuthService {
       throw Exception('Connection error: $e');
     }
   }
+
+  // 🆕 NEW: Change Password
+  Future<http.Response> changePassword({
+    required String accessToken,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final url = Uri.parse('$baseUrl/change-password/');
+    
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
+        body: jsonEncode({
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        }),
+      );
+      
+      return response;
+    } catch (e) {
+      throw Exception('Connection error: $e');
+    }
+  }
+
+  // 🟢 Forgot Password - Request password reset
+  Future<http.Response> forgotPassword(String email) async {
+    final url = Uri.parse('$baseUrl/forgot-password/');
+    
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+        }),
+      );
+      
+      return response;
+    } catch (e) {
+      throw Exception('Connection error: $e');
+    }
+  }
+
+  // 🟢 Reset Password - Reset password with token
+  Future<http.Response> resetPassword(String email, String token, String newPassword) async {
+    final url = Uri.parse('$baseUrl/reset-password/');
+    
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'token': token,
+          'new_password': newPassword,
+        }),
+      );
+      
+      return response;
+    } catch (e) {
+      throw Exception('Connection error: $e');
+    }
+  }
 }

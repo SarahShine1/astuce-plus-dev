@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AstuceService {
+  //static const String baseUrl = 'http://10.0.2.2:8000/api/astuces';
   static const String baseUrl = 'http://192.168.137.1:8000/api/astuces';
   final storage = const FlutterSecureStorage();
 
@@ -65,15 +66,24 @@ class AstuceService {
       final uri = Uri.parse(url);
       print("🌐 Fetching astuces from: $uri");
       
+      // ✅ Include token if available to get est_favori status
+      final token = await _getToken();
+      final headers = {'Content-Type': 'application/json'};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+      
       final response = await http.get(
         uri,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       ).timeout(const Duration(seconds: 10));
       
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print("✅ Astuces fetched: ${data.length} items");
-        return data;
+        // Handle paginated responses
+        final results = data is Map ? (data['results'] as List? ?? data) : data;
+        print("✅ Astuces fetched: ${results.length} items");
+        return results;
       } else {
         print("❌ Failed to fetch astuces: ${response.statusCode}");
         print("Response body: ${response.body}");
@@ -91,11 +101,9 @@ class AstuceService {
       final url = Uri.parse('$baseUrl/astuces/$astuceId/details/');
       print("🌐 Fetching astuce details from: $url");
       
+      // ✅ Include token to get est_favori status
       final token = await _getToken();
-      final headers = {
-        'Content-Type': 'application/json',
-      };
-      
+      final headers = {'Content-Type': 'application/json'};
       if (token != null) {
         headers['Authorization'] = 'Bearer $token';
       }
@@ -119,6 +127,37 @@ class AstuceService {
     }
   }
 
+  // ========== PROPOSITIONS ==========
+  Future<Map<String, dynamic>?> getPropositionDetails(int propositionId) async {
+    try {
+      final url = Uri.parse('$baseUrl/propositions/$propositionId/');
+      print("🌐 Fetching proposition details from: $url");
+      
+      final token = await _getToken();
+      final headers = {'Content-Type': 'application/json'};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+      
+      final response = await http.get(
+        url,
+        headers: headers,
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print("✅ Proposition details fetched successfully");
+        return data;
+      } else {
+        print("❌ Failed to fetch proposition details: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      print("❌ Error fetching proposition details: $e");
+      return null;
+    }
+  }
+
   // ========== ÉVALUATIONS ==========
   
   /// Évalue une astuce (note + commentaire)
@@ -127,7 +166,7 @@ class AstuceService {
     required String accessToken,
     required int note,
     String? commentaire,
-    double? fiabilitePerdue,
+    double? fiabilitePercue,
   }) async {
     try {
       final body = <String, dynamic>{
@@ -137,27 +176,33 @@ class AstuceService {
       if (commentaire != null && commentaire.isNotEmpty) {
         body['commentaire'] = commentaire;
       }
-      if (fiabilitePerdue != null) {
-        body['fiabilite_percue'] = fiabilitePerdue;
+      if (fiabilitePercue != null) {
+        body['fiabilite_percue'] = fiabilitePercue;
       }
       
+      print("📤 Evaluating astuce $astuceId with body: $body");
+      
       final response = await http.post(
-        Uri.parse('$baseUrl/astuces/astuces/$astuceId/evaluer/'),
+        Uri.parse('$baseUrl/astuces/$astuceId/evaluer/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $accessToken',
         },
         body: jsonEncode(body),
-      );
+      ).timeout(const Duration(seconds: 10));
       
-      if (response.statusCode == 201) {
+      print("📥 Response status: ${response.statusCode}");
+      print("📥 Response body: ${response.body}");
+      
+      if (response.statusCode == 201 || response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['error'] ?? 'Failed to evaluate: ${response.statusCode}');
+        throw Exception(error['error'] ?? error['detail'] ?? 'Failed to evaluate: ${response.statusCode}');
       }
     } catch (e) {
-      throw Exception('Connection error: $e');
+      print("❌ Error in evaluerAstuce: $e");
+      throw Exception('Erreur de connexion: $e');
     }
   }
   
@@ -166,21 +211,30 @@ class AstuceService {
   /// Récupère les favoris de l'utilisateur
   Future<List<dynamic>> getMesFavoris(String accessToken) async {
     try {
+      print("🌐 Fetching user favorites...");
+      
       final response = await http.get(
-        Uri.parse('$baseUrl/astuces/favoris/mes_favoris/'),
+        Uri.parse('$baseUrl/favoris/mes_favoris/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $accessToken',
         },
-      );
+      ).timeout(const Duration(seconds: 10));
+      
+      print("📥 Favorites response status: ${response.statusCode}");
       
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final data = jsonDecode(response.body);
+        print("✅ Favorites fetched: ${data.length} items");
+        return data;
       } else {
+        print("❌ Failed to load favorites: ${response.statusCode}");
+        print("Response: ${response.body}");
         throw Exception('Failed to load favorites: ${response.statusCode}');
       }
     } catch (e) {
-      throw Exception('Connection error: $e');
+      print("❌ Error fetching favorites: $e");
+      throw Exception('Erreur de connexion: $e');
     }
   }
   
@@ -190,21 +244,28 @@ class AstuceService {
     required String accessToken,
   }) async {
     try {
+      print("🔄 Toggling favorite for astuce $astuceId");
+      
       final response = await http.post(
-        Uri.parse('$baseUrl/astuces/astuces/$astuceId/toggle_favori/'),
+        Uri.parse('$baseUrl/astuces/$astuceId/toggle_favori/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $accessToken',
         },
-      );
+      ).timeout(const Duration(seconds: 10));
+      
+      print("📥 Toggle favorite response: ${response.statusCode}");
+      print("📥 Response body: ${response.body}");
       
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
+        print("❌ Failed to toggle favorite: ${response.statusCode}");
         throw Exception('Failed to toggle favorite: ${response.statusCode}');
       }
     } catch (e) {
-      throw Exception('Connection error: $e');
+      print("❌ Error toggling favorite: $e");
+      throw Exception('Erreur de connexion: $e');
     }
   }
   
@@ -234,7 +295,7 @@ class AstuceService {
       }
       
       final response = await http.post(
-        Uri.parse('$baseUrl/astuces/rechercher/'),
+        Uri.parse('$baseUrl/rechercher/'),
         headers: headers,
         body: jsonEncode(body),
       );
@@ -255,7 +316,7 @@ class AstuceService {
   Future<List<dynamic>> getMesPropositions(String accessToken) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/astuces/propositions/mes_propositions/'),
+        Uri.parse('$baseUrl/propositions/mes_propositions/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $accessToken',
@@ -272,33 +333,81 @@ class AstuceService {
     }
   }
   
-  /// Soumet une nouvelle proposition d'astuce
+   // ========== CRÉER UNE PROPOSITION ==========
   Future<Map<String, dynamic>> creerProposition({
     required String accessToken,
-    required String contenu,
+    required String titre,
+    required String description,
+    String? source,
+    required String niveauDifficulte,
+    required List<int> categoriesIds,
+    required List<Map<String, String>> termes,
+    dynamic imageFile,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/astuces/propositions/'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $accessToken',
-        },
-        body: jsonEncode({'contenu': contenu}),
+      print("📤 Creating proposition with data...");
+
+      // Créer la requête multipart
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/propositions/'),
       );
+
+      // Ajouter les champs texte
+      request.fields['titre'] = titre;
+      request.fields['description'] = description;
+      request.fields['source'] = source ?? '';
+      request.fields['niveau_difficulte'] = niveauDifficulte;
       
+      // Ajouter les categories (comme JSON array)
+      request.fields['categories_ids'] = jsonEncode(categoriesIds);
+      
+      // Ajouter les termes (comme JSON string)
+      request.fields['nouveaux_termes'] = jsonEncode(termes);
+
+      // Ajouter l'image si elle existe
+      if (imageFile != null) {
+        final bytes = await imageFile.readAsBytes();
+        request.files.add(
+          http.MultipartFile(
+            'image',
+            imageFile.openRead(),
+            bytes.length,
+            filename: 'proposition_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          ),
+        );
+        print("📸 Image ajoutée au formulaire");
+      }
+
+      // Ajouter le token d'auth
+      request.headers['Authorization'] = 'Bearer $accessToken';
+
+      // Envoyer la requête
+      final response = await request.send().timeout(const Duration(seconds: 15));
+      final responseData = await response.stream.bytesToString();
+
+      print("📥 Response status: ${response.statusCode}");
+      print("📥 Response body: $responseData");
+
       if (response.statusCode == 201) {
-        return jsonDecode(response.body);
+        final data = jsonDecode(responseData);
+        print("✅ Proposition created successfully");
+        return {
+          'success': true,
+          'data': data,
+          'message': 'Proposition créée avec succès ! Elle sera examinée par un modérateur.'
+        };
       } else {
-        throw Exception('Failed to create proposition: ${response.statusCode}');
+        final error = jsonDecode(responseData);
+        throw Exception(error['error'] ?? 'Erreur lors de la création: ${response.statusCode}');
       }
     } catch (e) {
-      throw Exception('Connection error: $e');
+      print("❌ Error creating proposition: $e");
+      throw Exception('Erreur de connexion: $e');
     }
   }
-  
-  
-  
+
+
   /// Calcule la note moyenne d'une astuce
   double calculerNoteMoyenne(Map<String, dynamic> astuceDetails) {
     try {
@@ -312,6 +421,36 @@ class AstuceService {
       return sum / evaluations.length;
     } catch (e) {
       return 0.0;
+    }
+  }
+
+  // ========== TERMES ==========
+  Future<List<dynamic>> getTermes({String? search}) async {
+    try {
+      String url = '$baseUrl/termes/';
+      if (search != null && search.isNotEmpty) {
+        url += '?search=$search';
+      }
+      
+      final uri = Uri.parse(url);
+      print("🌐 Fetching termes from: $uri");
+      
+      final response = await http.get(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print("✅ Termes fetched: ${data.length} items");
+        return data;
+      } else {
+        print("❌ Failed to fetch termes: ${response.statusCode}");
+        return [];
+      }
+    } catch (e) {
+      print("❌ Error fetching termes: $e");
+      return [];
     }
   }
 }

@@ -5,11 +5,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Avg, Q
 from django.utils import timezone
 from django.contrib.auth import get_user_model
-from .models import Astuce, Categorie, Proposition, Validation, Evaluation, Favori, Recherche
+from .models import Astuce, Categorie, Proposition, Validation, Evaluation, Favori, Recherche, Terme
 from .serializers import (
     AstuceSerializer, CategorieSerializer, PropositionSerializer,
     ValidationSerializer, EvaluationSerializer, FavoriSerializer,
-    RechercheSerializer, FavoriAvecAstuceSerializer
+    RechercheSerializer, FavoriAvecAstuceSerializer, TermeSerializer
 )
 
 User = get_user_model()
@@ -50,23 +50,44 @@ class AstuceViewSet(viewsets.ModelViewSet):
         
         return queryset
 
+    def list(self, request, *args, **kwargs):
+        """Override list to include request context"""
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        
+        if page is not None:
+            serializer = self.get_serializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data)
+
     @action(detail=True, methods=['get'])
     def details(self, request, pk=None):
         astuce = self.get_object()
         evaluations = astuce.evaluations.all()[:10]
         
-        serializer = self.get_serializer(astuce)
+        # Serialize with context to get est_favori
+        serializer = self.get_serializer(astuce, context={'request': request})
         eval_serializer = EvaluationSerializer(evaluations, many=True)
+
+        # Check if current user has this in favorites
+        est_favori = False
+        if request.user.is_authenticated:
+            est_favori = Favori.objects.filter(
+                utilisateur=request.user,
+                astuce=astuce
+            ).exists()
+        
+        astuce_data = serializer.data
+        astuce_data['est_favori'] = est_favori  # Ensure it's included
         
         data = {
-            'astuce': serializer.data,
+            'astuce': astuce_data,
             'evaluations': eval_serializer.data,
             'moyenne_note': astuce.evaluations.aggregate(Avg('note'))['note__avg'] or 0,
             'nombre_evaluations': astuce.evaluations.count(),
         }
-        
-        if request.user.is_authenticated:
-            data['est_favori'] = astuce.favorited_by.filter(id=request.user.id).exists()
         
         return Response(data)
 
@@ -105,14 +126,23 @@ class AstuceViewSet(viewsets.ModelViewSet):
         )
         
         if not created:
+            # If it already exists, delete it
             favori.delete()
-            return Response({'status': 'retiré des favoris'})
-        
-        return Response({'status': 'ajouté aux favoris'})
+            return Response({
+                'message': 'Astuce retirée des favoris',
+                'est_favori': False
+            })
+        else:
+            # If newly created
+            return Response({
+                'message': 'Astuce ajoutée aux favoris',
+                'est_favori': True
+            })
+
 
 # ========== FAVORIS ==========
 class FavoriViewSet(viewsets.ModelViewSet):
-    queryset = Favori.objects.all()  # AJOUTÉ
+    queryset = Favori.objects.all()
     serializer_class = FavoriSerializer
     permission_classes = [permissions.IsAuthenticated]
     
@@ -121,9 +151,25 @@ class FavoriViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def mes_favoris(self, request):
-        favoris = self.get_queryset()
-        serializer = FavoriAvecAstuceSerializer(favoris, many=True)
-        return Response(serializer.data)
+        """Return the list of favorite astuces for the current user"""
+        print(f"🔍 Fetching favorites for user: {request.user.username}")
+        
+        favoris = self.get_queryset().select_related('astuce')
+        print(f"📊 Found {favoris.count()} favorites")
+        
+        # Extract the astuces from favoris
+        astuces = [favori.astuce for favori in favoris]
+        
+        # Serialize the astuces with context
+        serializer = AstuceSerializer(astuces, many=True, context={'request': request})
+        
+        # Add est_favori=True for all since these are all favorites
+        data = serializer.data
+        for astuce_data in data:
+            astuce_data['est_favori'] = True
+        
+        print(f"✅ Returning {len(data)} favorite astuces")
+        return Response(data)
 
 # ========== PROPOSITIONS ==========
 class PropositionViewSet(viewsets.ModelViewSet):
@@ -243,4 +289,22 @@ class RechercheViewSet(viewsets.ViewSet):
             'results': serializer.data,
             'count': queryset.count()
         })
+
+
+# ========== TERMES ==========
+class TermeViewSet(viewsets.ModelViewSet):
+    serializer_class = TermeSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['terme', 'definition']
+    ordering_fields = ['terme', 'date_creation']
+    ordering = ['terme']
+
+    def get_queryset(self):
+        # Only return terms from validated astuces
+        return Terme.objects.filter(astuces__valide=True).distinct()
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
     

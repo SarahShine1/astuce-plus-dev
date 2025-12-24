@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/pages/profile_setup_page.dart';
+import 'package:frontend/pages/login_page.dart';
+
 import 'dart:convert'; 
 import 'package:frontend/services/auth_service.dart';
 import 'dart:async';
@@ -80,8 +82,9 @@ class _SignupPageState extends State<SignupPage> {
       // Navigate to profile setup
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => ProfileSetupPage()),
+        MaterialPageRoute(builder: (_) => LoginPage()),
       );
+      _showSnackBar("Se connecter pour continuer la configuration du profil.");
     } else {
       final errorData = jsonDecode(response.body);
       String errorMessage = "Échec de l'inscription";
