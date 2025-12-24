@@ -74,10 +74,10 @@ Backend accessible à :
 http://localhost:8000
 
 ### 5.Configuration du frontend Flutter
-cd ..
-cd frontend
-flutter pub get
-flutter run
+- cd ..
+- cd frontend
+- flutter pub get
+- flutter run
 
 ### 6.Données de démonstration
 Option 1 : Créer des données manuellement
