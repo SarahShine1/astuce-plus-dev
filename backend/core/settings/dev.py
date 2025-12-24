@@ -15,16 +15,16 @@ CORS_ALLOWED_ORIGINS = [
 ]
    
 
-# En développement, vous pouvez aussi utiliser:
-CORS_ALLOW_ALL_ORIGINS = True  # Plus simple pour tests
-# Si tu veux garder PostgreSQL aussi pour dev :
+# En développement
+CORS_ALLOW_ALL_ORIGINS = True  
+# Database
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'astuce_plus',
-        'USER': 'postgres',
-        'PASSWORD': '1234',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME', ''),
+        'USER': os.getenv('DB_USER', ''),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
