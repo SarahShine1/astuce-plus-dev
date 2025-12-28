@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/services/auth_service.dart';
+import 'dart:convert';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -9,23 +11,119 @@ class ForgotPasswordPage extends StatefulWidget {
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final TextEditingController emailController = TextEditingController();
+  final TextEditingController tokenController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  final AuthService _authService = AuthService();
+  
+  bool _isLoading = false;
+  bool _resetTokenSent = false;
 
-  void _resetPassword() {
-    String email = emailController.text;
+  void _resetPassword() async {
+    String email = emailController.text.trim();
 
-    if (email.isNotEmpty) {
-      print("Reset password for email: $email");
-      // Logique d'envoi d'email de réinitialisation
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Un email de réinitialisation a été envoyé"),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else {
+    if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Veuillez saisir votre email")),
       );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await _authService.forgotPassword(email);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _resetTokenSent = true;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Email de réinitialisation envoyé! Vérifiez vos emails."),
+            backgroundColor: Colors.green,
+          ),
+        );
+        print("✅ Reset password email sent to: $email");
+      } else {
+        final error = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Erreur: ${error['error'] ?? 'Erreur inconnue'}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Erreur de connexion: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _confirmReset() async {
+    String email = emailController.text.trim();
+    String token = tokenController.text.trim();
+    String newPassword = passwordController.text;
+
+    if (email.isEmpty || token.isEmpty || newPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Tous les champs sont requis")),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await _authService.resetPassword(email, token, newPassword);
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Mot de passe réinitialisé avec succès!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // Return to login after 2 seconds
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.pop(context);
+          }
+        });
+      } else {
+        final error = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Erreur: ${error['error'] ?? 'Token invalide'}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Erreur de connexion: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -103,10 +201,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   const SizedBox(height: 16),
 
                   // Texte explicatif
-                  const Text(
-                    "Saisissez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
+                  Text(
+                    _resetTokenSent 
+                      ? "Entrez le code reçu et votre nouveau mot de passe"
+                      : "Saisissez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
                     textAlign: TextAlign.justify,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
                       color: Colors.grey,
                       height: 1.4,
@@ -117,6 +217,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   // Champ Email
                   TextField(
                     controller: emailController,
+                    enabled: !_resetTokenSent,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
                       labelText: "Email",
@@ -128,14 +229,50 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // Champ Token (visible après envoi)
+                  if (_resetTokenSent)
+                    Column(
+                      children: [
+                        TextField(
+                          controller: tokenController,
+                          decoration: const InputDecoration(
+                            labelText: "Code de réinitialisation",
+                            border: OutlineInputBorder(),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFF053F5C), width: 2.0),
+                            ),
+                            prefixIcon: Icon(Icons.vpn_key, color: Color(0xFF053F5C)),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: passwordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: "Nouveau mot de passe",
+                            border: OutlineInputBorder(),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFF053F5C), width: 2.0),
+                            ),
+                            prefixIcon: Icon(Icons.lock, color: Color(0xFF053F5C)),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                      ],
+                    ),
                   const SizedBox(height: 24),
 
-                  // Bouton Envoyer
+                  // Bouton Envoyer/Réinitialiser
                   SizedBox(
                     width: double.infinity,
                     height: 45,
                     child: ElevatedButton(
-                      onPressed: _resetPassword,
+                      onPressed: _isLoading 
+                        ? null 
+                        : (_resetTokenSent ? _confirmReset : _resetPassword),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF7AD19),
                         foregroundColor: Colors.white,
@@ -143,12 +280,54 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        "Envoyer le lien",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              _resetTokenSent 
+                                ? "Réinitialiser le mot de passe"
+                                : "Envoyer le code",
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            ),
                     ),
                   ),
+                  if (_resetTokenSent)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 45,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _resetTokenSent = false;
+                              tokenController.clear();
+                              passwordController.clear();
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFF7AD19)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            "Retour",
+                            style: TextStyle(
+                              color: Color(0xFFF7AD19),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 16),
 
                   // Informations supplémentaires

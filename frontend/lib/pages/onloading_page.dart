@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/components/navbar.dart';
 import 'package:frontend/pages/login_page.dart';
-import 'package:frontend/pages/signup_page.dart';
+import 'package:frontend/pages/home_page.dart';
 import 'package:frontend/widgets/welcome_button.dart';
 import 'package:frontend/widgets/button.dart';
-import 'package:frontend/pages/home_page.dart';
+import 'package:frontend/components/navbar.dart';
+
 
 class OnloadingPage extends StatefulWidget {
   const OnloadingPage({super.key});
@@ -138,11 +139,18 @@ class _OnloadingPageState extends State<OnloadingPage> {
                     height: 60,
                     child: WelcomeButton(
                       buttonText: "Continuer en invité",
-                      onTap: () {
+                       onTap: () {
+                        // ✅ Passer les paramètres pour le mode invité
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const HomePage(),
+                            builder: (context) => const HomePage(
+                              userId: null,
+                              userName: "Invité",
+                              userAvatar: null,
+                              isAdmin: false,
+                              isGuest: true,
+                            ),
                           ),
                         );
                       },
@@ -158,12 +166,7 @@ class _OnloadingPageState extends State<OnloadingPage> {
                       color: const Color(0xFFF7AD19),
 
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const LoginPage(),
-                          ),
-                        );
+                        Navigator.pushNamed(context, '/login');
                       },
                     ),
                   ),

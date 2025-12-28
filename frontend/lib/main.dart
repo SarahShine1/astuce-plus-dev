@@ -13,6 +13,7 @@ import 'package:frontend/pages/profile_page.dart';
 import 'package:frontend/components/navbar.dart';
 import 'package:frontend/pages/profile_setup_page.dart';
 import 'package:frontend/pages/astuce_page.dart';
+import 'package:frontend/pages/search_page.dart';
 import 'package:frontend/pages/experts/dashboard.dart';
 
 void main() {
@@ -27,9 +28,28 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Mon App',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: OnloadingPage(), // ✅ Ajoute le username ici
+      debugShowCheckedModeBanner: false,
+      initialRoute: '/welcome',
+      routes: {
+        '/welcome': (_) => const WelcomePage(),
+        '/onloading': (_) => const OnloadingPage(),
+        '/home': (_) => const HomePage(),
+        '/search': (_) => const SearchPage(),
+        '/favorites': (_) => const SavedPage(),
+        '/login': (_) => const LoginPage(),
+        '/signup': (_) => const SignupPage(),
+        '/profile': (_) => const ProfilePage(),
+        '/profile-setup': (_) => const ProfileSetupPage(),
+        //'/astuce': (_) => AstucePage(username: ''),
+        '/main': (_) => const MainNavigationWrapper(),
 
-
+        // Friend's new routes:
+        '/dictionary': (_) => const DictionaryPage(),
+        '/edit-profile': (_) => const EditProfilePage(),
+        '/forgot-password': (_) => const ForgotPasswordPage(),
+        '/post': (_) => const PostPage(),
+        '/moderator-dashboard': (_) => const ModeratorDashboard(),
+        },
     );
   }
 }

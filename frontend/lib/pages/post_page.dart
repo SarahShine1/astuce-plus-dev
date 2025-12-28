@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:frontend/services/AstuceService.dart';
 import 'dart:io';
 
 class PostPage extends StatefulWidget {
@@ -16,6 +18,10 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
   static const Color lightGray = Color(0xFFF8F9FA);
   static const Color cardBackground = Colors.white;
 
+  final AstuceService _astuceService = AstuceService();
+  final storage = const FlutterSecureStorage();
+  String? accessToken;
+
   AnimationController? _animationController;
   Animation<double>? _fadeAnimation;
 
@@ -24,24 +30,21 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
 
   final _titreController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _sourceController = TextEditingController();
 
-  String? _categorieSelectionnee;
+  int? _categorieSelectionnee;
   String? _niveauDifficulte;
-  List<TextEditingController> _etapesControllers = [TextEditingController()];
+  static const Map<String, String> niveauMap = {
+    'Débutant': 'debutant',
+    'Intermédiaire': 'intermediaire',
+    'Expert': 'expert',
+  };
   List<File?> _images = [];
   List<Map<String, TextEditingController>> _termes = [];
 
-  final List<String> _categories = [
-    'Santé',
-    'Bien-être',
-    'Cuisine',
-    'Maison',
-    'Beauté',
-    'Productivité',
-    'Technologie',
-    'Finances',
-    'Loisirs'
-  ];
+  List<dynamic> _categories = [];
+  bool _isLoadingCategories = true;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -54,6 +57,33 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
       CurvedAnimation(parent: _animationController!, curve: Curves.easeInOut),
     );
     _animationController!.forward();
+    _loadToken();
+    _loadCategories();
+  }
+
+  Future<void> _loadToken() async {
+    accessToken = await storage.read(key: 'access_token');
+    if (accessToken == null) {
+      if (mounted) {
+        _showErrorSnackbar('Vous devez être connecté pour proposer une astuce');
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final categories = await _astuceService.getCategories();
+      setState(() {
+        _categories = categories;
+        _isLoadingCategories = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingCategories = false;
+      });
+      _showErrorSnackbar('Erreur lors du chargement des catégories');
+    }
   }
 
   @override
@@ -61,9 +91,7 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
     _animationController!.dispose();
     _titreController.dispose();
     _descriptionController.dispose();
-    for (var controller in _etapesControllers) {
-      controller.dispose();
-    }
+    _sourceController.dispose();
     for (var t in _termes) {
       t['nom']!.dispose();
       t['definition']!.dispose();
@@ -120,22 +148,101 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
     });
   }
 
-  void _addEtape() {
-    setState(() {
-      _etapesControllers.add(TextEditingController());
-    });
-  }
+  Future<void> _submitForm() async {
 
-  void _removeEtape(int index) {
-    if (_etapesControllers.length > 1) {
-      setState(() {
-        _etapesControllers[index].dispose();
-        _etapesControllers.removeAt(index);
-      });
+    print("🔵 1. _submitForm() appelé");
+  
+  if (_formKey.currentState!.validate()) {
+    print("✅ 2. Formulaire validé");
+    
+    if (_categorieSelectionnee == null) {
+      print("❌ Catégorie non sélectionnée");
+      _showErrorSnackbar('Veuillez sélectionner une catégorie');
+      return;
     }
+    print("✅ 3. Catégorie sélectionnée: $_categorieSelectionnee");
+    
+    if (_niveauDifficulte == null) {
+      print("❌ Niveau de difficulté non sélectionné");
+      _showErrorSnackbar('Veuillez sélectionner un niveau de difficulté');
+      return;
+    }
+    print("✅ 4. Niveau sélectionné: $_niveauDifficulte");
+
+    if (accessToken == null) {
+      print("❌ Token manquant");
+      _showErrorSnackbar('Session expirée, veuillez vous reconnecter');
+      return;
+    }
+    print("✅ 5. Token présent");
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      print("🔵 6. Préparation des termes...");
+      
+      // Préparer les termes
+      List<Map<String, String>> termesData = [];
+      for (var t in _termes) {
+        if (t['nom']!.text.isNotEmpty && t['definition']!.text.isNotEmpty) {
+          termesData.add({
+            'terme': t['nom']!.text,
+            'definition': t['definition']!.text,
+          });
+        }
+      }
+      print("✅ 7. ${termesData.length} termes préparés");
+
+      print("🔵 8. Appel API creerProposition...");
+      print("   - Titre: ${_titreController.text}");
+      print("   - Description: ${_descriptionController.text.substring(0, 50)}...");
+      print("   - Niveau: $_niveauDifficulte");
+      print("   - Catégories: [$_categorieSelectionnee]");
+      print("   - Termes: ${termesData.length}");
+      print("   - Image: ${_images.isNotEmpty ? 'Oui' : 'Non'}");
+      
+      // Appeler l'API
+      final result = await _astuceService.creerProposition(
+        accessToken: accessToken!,
+        titre: _titreController.text,
+        description: _descriptionController.text,
+        source: _sourceController.text.isEmpty ? null : _sourceController.text,
+        niveauDifficulte: _niveauDifficulte!,
+        categoriesIds: [_categorieSelectionnee!],
+        termes: termesData,
+        imageFile: _images.isNotEmpty ? _images.first : null,
+      );
+
+      print("🎉 9. API retournée avec succès!");
+      print("   Result: $result");
+
+      setState(() {
+        _isSubmitting = false;
+      });
+
+      if (result['success'] == true) {
+        print("✅ 10. Proposition créée avec succès");
+        _showSuccessSnackbar(result['message']);
+        _resetForm();
+      } else {
+        print("❌ 10. Échec (success != true)");
+      }
+    } catch (e) {
+      print("❌ ERREUR lors de la création: $e");
+      setState(() {
+        _isSubmitting = false;
+      });
+      _showErrorSnackbar('Erreur: $e');
+    }
+  } else {
+    print("❌ Formulaire invalide");
   }
 
-  void _submitForm() {
+
+
+
     if (_formKey.currentState!.validate()) {
       if (_categorieSelectionnee == null) {
         _showErrorSnackbar('Veuillez sélectionner une catégorie');
@@ -146,40 +253,72 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
         return;
       }
 
-      String message = 'Astuce créée: ${_titreController.text}';
-
-      if (_termes.isNotEmpty) {
-        message += '\nTermes ajoutés au dictionnaire:';
-        for (var t in _termes) {
-          message += '\n- ${t['nom']!.text}: ${t['definition']!.text}';
-        }
+      if (accessToken == null) {
+        _showErrorSnackbar('Session expirée, veuillez vous reconnecter');
+        return;
       }
 
-      _showSuccessSnackbar(message);
-
-      // Réinitialisation
-      _formKey.currentState!.reset();
       setState(() {
-        _titreController.clear();
-        _descriptionController.clear();
-        _categorieSelectionnee = null;
-        _niveauDifficulte = null;
-
-        // Réinitialiser étapes
-        _etapesControllers.forEach((c) => c.dispose());
-        _etapesControllers = [TextEditingController()];
-
-        // Réinitialiser images
-        _images = [];
-
-        // Réinitialiser termes
-        _termes.forEach((t) {
-          t['nom']!.dispose();
-          t['definition']!.dispose();
-        });
-        _termes = [];
+        _isSubmitting = true;
       });
+
+      try {
+        // Préparer les termes
+        List<Map<String, String>> termesData = [];
+        for (var t in _termes) {
+          if (t['nom']!.text.isNotEmpty && t['definition']!.text.isNotEmpty) {
+            termesData.add({
+              'terme': t['nom']!.text,
+              'definition': t['definition']!.text,
+            });
+          }
+        }
+
+        // Appeler l'API
+        final result = await _astuceService.creerProposition(
+          accessToken: accessToken!,
+          titre: _titreController.text,
+          description: _descriptionController.text,
+          source: _sourceController.text.isEmpty ? null : _sourceController.text,
+          niveauDifficulte: _niveauDifficulte!,
+          categoriesIds: [_categorieSelectionnee!],
+          termes: termesData,
+          imageFile: _images.isNotEmpty ? _images.first : null,
+        );
+
+        setState(() {
+          _isSubmitting = false;
+        });
+
+        if (result['success'] == true) {
+          _showSuccessSnackbar(result['message']);
+          _resetForm();
+        }
+      } catch (e) {
+        setState(() {
+          _isSubmitting = false;
+        });
+        _showErrorSnackbar('Erreur: $e');
+      }
     }
+  }
+
+  void _resetForm() {
+    _formKey.currentState!.reset();
+    setState(() {
+      _titreController.clear();
+      _descriptionController.clear();
+      _sourceController.clear();
+      _categorieSelectionnee = null;
+      _niveauDifficulte = null;
+      _images = [];
+
+      _termes.forEach((t) {
+        t['nom']!.dispose();
+        t['definition']!.dispose();
+      });
+      _termes = [];
+    });
   }
 
   void _showErrorSnackbar(String message) {
@@ -232,6 +371,13 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingCategories) {
+      return Scaffold(
+        backgroundColor: lightGray,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: lightGray,
       body: CustomScrollView(
@@ -239,7 +385,7 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
           _buildSliverAppBar(),
           SliverToBoxAdapter(
             child: FadeTransition(
-              opacity: _fadeAnimation ?? AlwaysStoppedAnimation(0.0),
+              opacity: _fadeAnimation ?? const AlwaysStoppedAnimation(0.0),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
                 child: Form(
@@ -263,11 +409,11 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
                       const SizedBox(height: 8),
                       _buildDescriptionField(),
                       const SizedBox(height: 24),
-                      _buildSectionTitle('Étapes de Mise en Œuvre'),
+                      _buildSectionTitle('Source (optionnel)'),
                       const SizedBox(height: 12),
-                      _buildEtapesSection(),
+                      _buildSourceField(),
                       const SizedBox(height: 24),
-                      _buildSectionTitle('Images ou Vidéos'),
+                      _buildSectionTitle('Images (bientôt disponible)'),
                       const SizedBox(height: 12),
                       _buildMediaSection(),
                       const SizedBox(height: 24),
@@ -356,7 +502,7 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
       elevation: 0,
       flexibleSpace: FlexibleSpaceBar(
         title: const Text(
-          "Créer une Astuce",
+          "Proposer une Astuce",
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -379,7 +525,7 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: TextStyle(
+      style: const TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.bold,
         color: primaryBlue,
@@ -418,8 +564,8 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
             if (value == null || value.isEmpty) {
               return 'Le titre est obligatoire';
             }
-            if (value.length < 50) {
-              return 'Le titre doit contenir au moins 50 caractères';
+            if (value.length < 10) {
+              return 'Le titre doit contenir au moins 10 caractères';
             }
             return null;
           },
@@ -429,8 +575,7 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
           '${_titreController.text.length}/100',
           style: TextStyle(
             fontSize: 12,
-            color:
-            _titreController.text.length < 50 ? Colors.red : accentOrange,
+            color: _titreController.text.length < 10 ? Colors.red : accentOrange,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -439,15 +584,15 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
   }
 
   Widget _buildCategorieDropdown() {
-    return DropdownButtonFormField<String>(
+    return DropdownButtonFormField<int>(
       value: _categorieSelectionnee,
-      items: _categories.map((String value) {
-        return DropdownMenuItem<String>(
-          value: value,
-          child: Text(value),
+      items: _categories.map<DropdownMenuItem<int>>((category) {
+        return DropdownMenuItem<int>(
+          value: category['id'],
+          child: Text(category['nom']),
         );
       }).toList(),
-      onChanged: (String? value) {
+      onChanged: (int? value) {
         setState(() {
           _categorieSelectionnee = value;
         });
@@ -476,27 +621,28 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
   Widget _buildDifficultyChips() {
     return Wrap(
       spacing: 12,
-      children: ['Débutant', 'Intermédiaire', 'Expert'].map((niveau) {
+      children: ['Débutant', 'Intermédiaire', 'Expert'].map((niveauDisplay) {
+        final niveauBackend = niveauMap[niveauDisplay]!;
         return FilterChip(
           label: Text(
-            niveau,
+            niveauDisplay,
             style: TextStyle(
-              color: _niveauDifficulte == niveau ? Colors.white : primaryBlue,
+              color: _niveauDifficulte == niveauBackend ? Colors.white : primaryBlue,
               fontWeight: FontWeight.w500,
             ),
           ),
-          selected: _niveauDifficulte == niveau,
+          selected: _niveauDifficulte == niveauBackend,
           onSelected: (selected) {
             setState(() {
-              _niveauDifficulte = selected ? niveau : null;
+              _niveauDifficulte = selected ? niveauBackend : null;
             });
           },
           selectedColor: accentOrange,
           backgroundColor: Colors.white,
           checkmarkColor: Colors.white,
-          elevation: _niveauDifficulte == niveau ? 4 : 2,
+          elevation: _niveauDifficulte == niveauBackend ? 4 : 2,
           side: BorderSide(
-            color: _niveauDifficulte == niveau ? accentOrange : Colors.grey[300]!,
+            color: _niveauDifficulte == niveauBackend ? accentOrange : Colors.grey[300]!,
           ),
         );
       }).toList(),
@@ -533,18 +679,18 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
             if (value == null || value.isEmpty) {
               return 'La description est obligatoire';
             }
-            if (value.length < 300) {
-              return 'La description doit contenir au moins 300 caractères';
+            if (value.length < 50) {
+              return 'La description doit contenir au moins 50 caractères';
             }
             return null;
           },
         ),
         const SizedBox(height: 8),
         Text(
-          '${_descriptionController.text.length}/300 min',
+          '${_descriptionController.text.length}/50 min',
           style: TextStyle(
             fontSize: 12,
-            color: _descriptionController.text.length < 300
+            color: _descriptionController.text.length < 50
                 ? Colors.red
                 : accentOrange,
             fontWeight: FontWeight.w500,
@@ -554,158 +700,115 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildEtapesSection() {
-    return Column(
-      children: [
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _etapesControllers.length,
-          itemBuilder: (context, index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: accentOrange,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${index + 1}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _etapesControllers[index],
-                      decoration: InputDecoration(
-                        labelText: 'Étape ${index + 1}',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: secondaryBlue,
-                            width: 2,
-                          ),
-                        ),
-                        filled: true,
-                        fillColor: cardBackground,
-                      ),
-                    ),
-                  ),
-                  if (_etapesControllers.length > 1)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: IconButton(
-                        onPressed: () => _removeEtape(index),
-                        icon: const Icon(Icons.delete_outline,
-                            color: Colors.red, size: 20),
-                        constraints: const BoxConstraints(),
-                        padding: const EdgeInsets.all(8),
-                      ),
-                    ),
-                ],
-              ),
-            );
-          },
+  Widget _buildSourceField() {
+    return TextFormField(
+      controller: _sourceController,
+      decoration: InputDecoration(
+        hintText: 'Ex: www.exemple.com',
+        hintStyle: TextStyle(color: Colors.grey[400]),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!),
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _addEtape,
-            icon: const Icon(Icons.add),
-            label: const Text('Ajouter une étape'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: accentOrange,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!),
         ),
-      ],
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: secondaryBlue, width: 2),
+        ),
+        filled: true,
+        fillColor: cardBackground,
+        prefixIcon: const Icon(Icons.link, color: accentOrange),
+      ),
     );
   }
 
   Widget _buildMediaSection() {
-    return Column(
-      children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (int i = 0; i < _images.length; i++)
-              Stack(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        children: [
+          if (_images.isEmpty || _images[0] == null)
+            GestureDetector(
+              onTap: _pickImage,
+              child: Column(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      _images[i]!,
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.cover,
+                  Icon(
+                    Icons.image_outlined,
+                    size: 40,
+                    color: Colors.grey[500],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Ajouter une image',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  Positioned(
-                    top: -5,
-                    right: -5,
-                    child: IconButton(
-                      onPressed: () => _removeImage(i),
-                      icon: const Icon(Icons.cancel, color: Colors.red),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Appuyez pour sélectionner une image',
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 12,
                     ),
                   ),
                 ],
               ),
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[400]!),
+            )
+          else
+            Column(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    _images[0]!,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
                 ),
-                child: const Icon(Icons.add_a_photo, color: Colors.grey),
-              ),
-            ),
-            GestureDetector(
-              onTap: _takePhoto,
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[400]!),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _pickImage,
+                      icon: const Icon(Icons.edit),
+                      label: const Text('Changer'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: secondaryBlue,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _images = [];
+                        });
+                      },
+                      icon: const Icon(Icons.delete),
+                      label: const Text('Supprimer'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.camera_alt, color: Colors.grey),
-              ),
+              ],
             ),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -714,7 +817,7 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
       children: [
         Expanded(
           child: ElevatedButton(
-            onPressed: _submitForm,
+            onPressed: _isSubmitting ? null : _submitForm,
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryBlue,
               foregroundColor: Colors.white,
@@ -723,32 +826,22 @@ class _PostPageState extends State<PostPage> with TickerProviderStateMixin {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text('Publier'),
+            child: _isSubmitting
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text('Proposer'),
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: ElevatedButton(
-            onPressed: () {
-              _formKey.currentState!.reset();
-              setState(() {
-                _titreController.clear();
-                _descriptionController.clear();
-                _categorieSelectionnee = null;
-                _niveauDifficulte = null;
-
-                _etapesControllers.forEach((c) => c.dispose());
-                _etapesControllers = [TextEditingController()];
-
-                _images = [];
-
-                _termes.forEach((t) {
-                  t['nom']!.dispose();
-                  t['definition']!.dispose();
-                });
-                _termes = [];
-              });
-            },
+            onPressed: _isSubmitting ? null : _resetForm,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.grey[400],
               foregroundColor: Colors.white,

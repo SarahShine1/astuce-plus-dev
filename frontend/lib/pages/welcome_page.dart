@@ -16,10 +16,7 @@ class _WelcomePageState extends State<WelcomePage> {
 
     // Wait 3 seconds then navigate to OnloadingPage
     Timer(const Duration(seconds: 2), () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const OnloadingPage()),
-      );
+      Navigator.pushReplacementNamed(context, '/onloading');
     });
   }
 

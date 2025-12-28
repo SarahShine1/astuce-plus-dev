@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:frontend/services/auth_service.dart';
 
 const Color primaryBlue = Color(0xFF1565C0);
 const Color lightBlue = Color(0xFF64B5F6);
@@ -17,6 +19,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> with TickerProv
   final TextEditingController currentPasswordController = TextEditingController();
   final TextEditingController newPasswordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
+
+  final AuthService _authService = AuthService();
+  final storage = const FlutterSecureStorage();
+  String? accessToken;
 
   bool _isObscureCurrent = true;
   bool _isObscureNew = true;
@@ -46,6 +52,17 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> with TickerProv
       CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
     );
     _animationController.forward();
+    _loadToken();
+  }
+
+  Future<void> _loadToken() async {
+    accessToken = await storage.read(key: 'access_token');
+    if (accessToken == null) {
+      if (mounted) {
+        _showErrorSnackbar('Session expirée, veuillez vous reconnecter');
+        Navigator.pop(context);
+      }
+    }
   }
 
   @override
@@ -83,40 +100,97 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> with TickerProv
 
   Future<void> _saveNewPassword() async {
     if (_formKey.currentState!.validate()) {
+      if (accessToken == null) {
+        _showErrorSnackbar('Session expirée, veuillez vous reconnecter');
+        return;
+      }
+
       setState(() {
         _isLoading = true;
       });
 
-      // Simulation d'un appel API
-      await Future.delayed(const Duration(seconds: 2));
+      try {
+        final response = await _authService.changePassword(
+          accessToken: accessToken!,
+          currentPassword: currentPasswordController.text,
+          newPassword: newPasswordController.text,
+        );
 
-      setState(() {
-        _isLoading = false;
-      });
+        setState(() {
+          _isLoading = false;
+        });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Text("Mot de passe changé avec succès !"),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          duration: Duration(seconds: 3),
-        ),
-      );
-
-      // Vider les champs
-      currentPasswordController.clear();
-      newPasswordController.clear();
-      confirmPasswordController.clear();
+        if (response.statusCode == 200) {
+          _showSuccessSnackbar("Mot de passe changé avec succès !");
+          
+          // Vider les champs
+          currentPasswordController.clear();
+          newPasswordController.clear();
+          confirmPasswordController.clear();
+          
+          // Retourner après 2 secondes
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) {
+              Navigator.pop(context);
+            }
+          });
+        } else {
+          final errorMsg = response.body.contains('Current password is incorrect')
+              ? 'Le mot de passe actuel est incorrect'
+              : 'Erreur lors du changement de mot de passe';
+          _showErrorSnackbar(errorMsg);
+        }
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showErrorSnackbar('Erreur de connexion: $e');
+      }
     } else {
       _shakeController.forward().then((_) => _shakeController.reverse());
     }
+  }
+
+  void _showErrorSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showSuccessSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   InputDecoration _inputDecoration(String label, IconData icon, bool obscure, VoidCallback toggle) {
